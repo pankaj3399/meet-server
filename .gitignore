@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output
+dist/
+build/
+out/
+
+# Caches
+.cache/
+.tmp/
+tmp/
+coverage/
+.eslintcache
+.stylelintcache
+.turbo/
+
+# Package managers
+.npm/
+.pnpm-store/
+package-lock.json
+
+# IDE/OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Misc
+.sass-cache/
+*.swp
+*.swo
+

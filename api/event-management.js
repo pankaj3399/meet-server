@@ -3,6 +3,7 @@ const auth = require('../model/auth');
 const eventManagementController = require('../controller/eventManagementController');
 const registeredParticipantController = require('../controller/registerParticipantController');
 const api = express.Router();
+const couponController = require('../controller/couponController');
 const use = require('../helper/utility').use;
 const cors = require('cors');
 
@@ -20,8 +21,16 @@ api.get('/api/events/:id', auth.verify('user'), use(eventManagementController.ge
 
 api.post('/api/event/payment/:id', auth.verify('user'), use(registeredParticipantController.pay));
 
+// Validate promotion code and preview discount amount for event payment
+api.post('/api/event/:id/validate-coupon', auth.verify('user'), use(couponController.validateEventCoupon));
+
 api.post('/api/sepa-attach', auth.verify('user'), use(registeredParticipantController.sepa.attach));
 
 api.post('/api/event/success', auth.verify('user'), use(registeredParticipantController.successPayment));
+
+api.post('/api/events/:id/cancel', auth.verify('user'), use(registeredParticipantController.cancel));
+
+// Admin cancellations: entire event, group, or team
+// Removed admin routes; admin logic is implemented in meet-mission service
 
 module.exports = api;
