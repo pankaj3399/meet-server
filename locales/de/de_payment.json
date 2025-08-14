@@ -13,5 +13,15 @@
     "subject": "Deine Meetlocal Hearts wurden gutgeschrieben!",
     "body": "Dein Kauf von {{quantity}} Meetlocal Hearts für {{amount}} am {{date}} wurde erfolgreich Deinem Konto gutgeschrieben.\n\nDu kannst Deine Hearts jetzt nutzen, um Interesse zu zeigen, Superlikes zu senden und besondere Funktionen freizuschalten.\n\nVielen Dank für Deinen Kauf und dafür, dass Du Teil der Meetlocal-Community bist!\n\nUm Dein aktuelles Guthaben zu sehen oder Deine Hearts zu verwenden, besuche Dein Dashboard:",
     "button": "Zu Meetlocal"
+  },
+  "cancelled_event": {
+    "subject_personal": "{{city}} – Stornierung bestätigt",
+    "body_personal": "Du hast das Event {{event}} storniert.\n\nHier ist dein Gutschein-Code: {{code}}\nGültig bis: {{date}}\n\nDu kannst ihn bei deiner nächsten Buchung einlösen.",
+    "button": "Zu Meetlocal"
+  },
+  "cancelled_event_late": {
+    "subject_personal": "{{city}} – Stornierung",
+    "body_personal": "Du hast das Event {{event}} storniert.\n\nDie Stornierung liegt innerhalb von 24 Stunden vor dem Start – daher können wir dir leider keinen Gutschein ausstellen.",
+    "button": "Zu Meetlocal"
   }
 }

@@ -233,13 +233,109 @@ exports.pay = async function (req, res) {
       // create a stripe customer
       stripeData.customer = accountData.stripe_customer_id || await stripe.customer.create({ email: accountData.owner_email, name: data.sepaForm ? data.account_holder_name : data.credit_card_name, ...!data.sepaForm && { token: data.token.id } });
       let paymentIntent, paymentSepa;
+      // Compute final amount using Stripe promotion code if provided
+      let originalAmountCents = transactionUser ? Math.round(transactionUser.amount * 100) : 0;
+      let finalAmountCents = originalAmountCents;
+      let discountCents = 0;
+      let couponMeta = null;
+      if (req.body.coupon) {
+        try {
+          const promo = await stripe.promotionCode.findByCode({ code: req.body.coupon });
+          if (promo && promo.active && promo.coupon?.valid !== false) {
+            if (promo.coupon.amount_off) {
+              discountCents = Math.min(promo.coupon.amount_off, originalAmountCents);
+            } else if (promo.coupon.percent_off) {
+              discountCents = Math.floor((promo.coupon.percent_off / 100) * originalAmountCents);
+            }
+            finalAmountCents = Math.max(originalAmountCents - discountCents, 0);
+            couponMeta = { id: promo.id, code: promo.code };
+          }
+        } catch (e) { /* ignore invalid code */ }
+      }
+      // If final amount is below Stripe minimum (EUR ~ 50 cents), treat as free
+      const MIN_EUR_CENTS = 50;
+      if (finalAmountCents < MIN_EUR_CENTS) {
+        try {
+          // Mark transaction paid
+          await transaction.findOneAndUpdate({ id: new mongoose.Types.ObjectId(id) }, { status: 'paid' });
+
+          // Fetch event and update participant(s)
+          const eventUser = await event.getById({ id: new mongoose.Types.ObjectId(transactionUser.event_id) });
+          if (eventUser) {
+            await registeredParticipant.findOneAndUpdate(
+              { id: new mongoose.Types.ObjectId(transactionUser.participant_id) },
+              { status: 'registered' }
+            );
+
+            // email main user
+            const mainUser = await registeredParticipant.findOneAndUpdate(
+              { id: new mongoose.Types.ObjectId(transactionUser.participant_id) },
+              { status: 'registered' }
+            );
+            await mail.send({
+              to: mainUser.email,
+              locale: req.locale,
+              custom: true,
+              template: 'event_registered',
+              subject: `${eventUser.city.name} - ${res.__('payment.registered_event.subject')}`,
+              content: {
+                name: `${mainUser.first_name} ${mainUser.last_name}`,
+                body: res.__('payment.registered_event.body', {
+                  name: eventUser.city.name,
+                  event: eventUser.city.name,
+                  date: utility.formatDateString(eventUser.date || new Date()),
+                }),
+                button_url: process.env.CLIENT_URL,
+                button_label: res.__('payment.registered_event.button'),
+              },
+            });
+
+            if (Array.isArray(transactionUser?.sub_participant_id)) {
+              for (const idSub of transactionUser.sub_participant_id) {
+                const subUser = await registeredParticipant.findOneAndUpdate(
+                  { id: new mongoose.Types.ObjectId(idSub) },
+                  { status: 'registered' }
+                );
+                await mail.send({
+                  to: subUser.email,
+                  locale: req.locale,
+                  custom: true,
+                  template: 'event_registered',
+                  subject: `${eventUser.city.name} - ${res.__('payment.registered_event.subject')}`,
+                  content: {
+                    name: `${subUser.first_name} ${subUser.last_name}`,
+                    body: res.__('payment.registered_event.body', {
+                      name: eventUser.city.name,
+                      event: eventUser.city.name,
+                      date: utility.formatDateString(eventUser.date || new Date()),
+                    }),
+                    button_url: process.env.CLIENT_URL,
+                    button_label: res.__('payment.registered_event.button'),
+                  },
+                });
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Free checkout finalize failed', e);
+        }
+
+        return res.status(200).send({
+          requires_payment_action: false,
+          transaction: id,
+          amount: 0,
+          price: { original: (originalAmountCents/100), discount: (originalAmountCents/100), final: 0 },
+          ...couponMeta && { coupon: couponMeta }
+        });
+      }
+
       if(data.sepaForm){
         paymentSepa = await stripe.customer.setappIntents(accountData.stripe_customer_id, ['sepa_debit']);
 
       } else {
         if(transactionUser){
           paymentIntent = await stripe.paymentIntent({
-            amount: transactionUser.amount * 100,
+            amount: finalAmountCents,
             id: accountData.stripe_customer_id || stripeData.customer.id,
             userId: req.user.id,
             payment_method_types: ['card'],
@@ -253,7 +349,6 @@ exports.pay = async function (req, res) {
       })
       
       return res.status(200).send({
-
         requires_payment_action: true,
         customer: { id: accountData.stripe_customer_id || stripeData.customer.id },
         client_secret: (data.sepaForm ? paymentSepa : paymentIntent)?.client_secret,
@@ -261,8 +356,10 @@ exports.pay = async function (req, res) {
         account_holder_name: data.account_holder_name,
         email: accountData.owner_email,
         type: data.sepaForm ? 'setup' : null,
-        transaction: id
-
+        transaction: id,
+        amount: (finalAmountCents/100),
+        price: { original: (originalAmountCents/100), discount: (discountCents/100), final: (finalAmountCents/100) },
+        ...couponMeta && { coupon: couponMeta }
       });
     }
 
@@ -737,4 +834,133 @@ exports.successPayment = async function (req, res) {
     data: {},
     message: res.__("account.sepa.updated"),
   });
+};
+
+/*
+ * registerParticipant.cancel()
+ */
+exports.cancel = async function (req, res) {
+  try {
+    const idUser = req.user;
+    const eventId = req.params.id;
+    utility.assert(eventId, res.__('account.invalid'));
+
+    const userData = await user.get({ id: idUser });
+    utility.assert(userData, res.__('account.invalid'));
+
+    const eventIdObj = new mongoose.Types.ObjectId(eventId);
+    const userIdObj = new mongoose.Types.ObjectId(userData._id);
+
+    const registration = await RegisteredParticipant.findOne({
+      user_id: userIdObj,
+      event_id: eventIdObj,
+      status: 'registered',
+    });
+    utility.assert(registration, res.__('event.invalid'));
+    console.log(registration);
+
+    // Get event details
+    const eventData = await event.getById({ id: eventIdObj });
+    utility.assert(eventData, res.__('event.invalid'));
+    console.log(eventData);
+    // Compute event start in Europe/Berlin timezone robustly (handles "HH:MM - HH:MM")
+    const moment = require('moment-timezone');
+    const timeStr = String(eventData.start_time || '00:00');
+    const match = timeStr.match(/(\d{1,2}):(\d{2})/);
+    const startHour = match ? parseInt(match[1], 10) : 0;
+    const startMinute = match ? parseInt(match[2], 10) : 0;
+    const eventDateBerlin = moment.tz(eventData.date, 'Europe/Berlin');
+    const eventStart = eventDateBerlin.clone().hour(startHour).minute(startMinute).second(0).millisecond(0);
+    const now = moment.tz('Europe/Berlin');
+
+    const hoursDiff = eventStart.diff(now, 'hours', true); // floating point hours
+    const timely = hoursDiff > 24; // More than 24 hours before start
+
+    // Cancel the registration
+    await RegisteredParticipant.findOneAndUpdate(
+      {
+        _id: registration._id
+      },
+      {
+        status: 'canceled',
+        is_cancelled: true,
+        cancel_date: new Date()
+      },
+      { new: true }
+    );
+
+    let voucher = null;
+    if (timely) {
+      try {
+        // Generate a single-use coupon valid for 24 months
+        const expiresAt = moment().add(24, 'months');
+        const redeemBy = Math.floor(expiresAt.valueOf() / 1000);
+
+        // Determine amount paid by the user for this event
+        const Transaction = mongoose.model('Transaction');
+        const tx = await Transaction.findOne({
+          user_id: new mongoose.Types.ObjectId(userData._id),
+          event_id: new mongoose.Types.ObjectId(eventId),
+          status: 'paid',
+          type: 'Register Event'
+        }).lean();
+        const amountOffCents = tx && typeof tx.amount === 'number' ? Math.round(tx.amount * 100) : 0;
+        if (!amountOffCents || amountOffCents <= 0) {
+          throw new Error('No paid transaction found for voucher calculation');
+        }
+        // Create amount-based coupon equal to what user paid
+        const coupon = await stripe.coupon.createOnce({
+          amount_off: amountOffCents,
+          currency: 'eur',
+          redeem_by: redeemBy,
+          name: `Voucher - ${eventData.tagline}`,
+          metadata: { user_id: String(userData._id), event_id: String(eventId), reason: 'timely_cancellation' }
+        });
+
+        // Create a promotion code linked to coupon
+        const code = `MEET-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+        const promo = await stripe.promotionCode.create({
+          coupon: coupon.id,
+          code,
+          expires_at: redeemBy,
+          max_redemptions: 1,
+          metadata: { user_id: String(userData._id), event_id: String(eventId), coupon_id: coupon.id }
+        });
+
+        voucher = { code: promo.code, expires_at: expiresAt.toISOString() };
+      } catch (e) {
+        console.error('Voucher creation failed:', e);
+      }
+    }
+
+    // Send email
+    try {
+      const isTimely = Boolean(voucher);
+      const subject = isTimely ? res.__('payment.cancelled_event.subject_personal', { city: eventData.city?.name }) : res.__('payment.cancelled_event_late.subject_personal', { city: eventData.city?.name });
+      const body = isTimely
+        ? res.__('payment.cancelled_event.body_personal', { event: eventData.tagline, code: voucher.code, date: moment(voucher.expires_at).format('YYYY-MM-DD') })
+        : res.__('payment.cancelled_event_late.body_personal', { event: eventData.tagline });
+
+      await mail.send({
+        to: registration.email,
+        locale: req.locale,
+        custom: true,
+        template: 'event_cancelled',
+        subject,
+        content: {
+          name: `${registration.first_name} ${registration.last_name}`,
+          body,
+          button_url: process.env.CLIENT_URL,
+          button_label: 'View Events'
+        }
+      });
+    } catch (e) {
+      console.error('Cancel email failed:', e);
+    }
+
+    return res.status(200).send({ data: { canceled: true, voucher } });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send({ error: err.message });
+  }
 };

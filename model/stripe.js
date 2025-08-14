@@ -367,6 +367,53 @@ exports.promo = async function(){
 }
 
 /*
+ * stripe.coupon.createOnce()
+ * create a one-time coupon with optional expiration
+ */
+exports.coupon = {};
+exports.coupon.createOnce = async function({ percent_off, amount_off, currency = 'eur', redeem_by, name, metadata } = {}){
+  const payload = { duration: 'once' };
+  if (typeof amount_off === 'number') {
+    payload.amount_off = amount_off;
+    payload.currency = currency;
+  } else if (typeof percent_off === 'number') {
+    payload.percent_off = percent_off;
+  }
+  if (redeem_by) payload.redeem_by = redeem_by;
+  if (name) payload.name = name;
+  if (metadata) payload.metadata = metadata;
+  return await stripe.coupons.create(payload);
+}
+
+/*
+ * stripe.promotionCode.create()
+ * create a promotion code for a coupon
+ */
+exports.promotionCode = {};
+exports.promotionCode.create = async function({ coupon, code, expires_at, max_redemptions, customer, metadata } = {}){
+  return await stripe.promotionCodes.create({
+    coupon,
+    ...code && { code },
+    ...expires_at && { expires_at },
+    ...max_redemptions && { max_redemptions },
+    ...customer && { customer },
+    active: true,
+    ...metadata && { metadata }
+  });
+}
+
+exports.promotionCode.findByCode = async function({ code }){
+  const list = await stripe.promotionCodes.list({ code, active: true, limit: 1, expand: ['data.coupon'] });
+  return list.data?.[0] || null;
+}
+
+exports.promotionCode.deactivate = async function({ id }){
+  try {
+    return await stripe.promotionCodes.update(id, { active: false });
+  } catch (e) { return null; }
+}
+
+/*
 * stripe.updateSource()
 * update source credit card
 */

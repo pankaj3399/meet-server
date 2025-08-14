@@ -1,4 +1,14 @@
 {
+  "cancelled_event": {
+    "subject_personal": "{{city}} - Event cancellation confirmed",
+    "body_personal": "You have cancelled the event {{event}}. Your voucher code: {{code}}. Valid until: {{date}}. Simply redeem it with your next booking.",
+    "button": "To Meetlocal"
+  },
+  "cancelled_event_late": {
+    "subject_personal": "{{city}} - Event cancellation",
+    "body_personal": "You have cancelled the event {{event}}. Unfortunately, the cancellation was made within 24 hours of the start time, so we cannot issue a voucher.",
+    "button": "To Meetlocal"
+  },
     "registered_event": {
         "subject": "Event Registered Status - Meetlocal",
         "body": "Hello {{name}}, \nWe’re excited to let you know that your registration for {{event}} has been successfully confirmed. Thank you for signing up — we can’t wait to see you at the event! \nHere are the details of your registration: \nEvent Name: {{event}} \nDate & Time: {{date}} \nIf you’d like to view or manage your registration, please visit your dashboard:",
