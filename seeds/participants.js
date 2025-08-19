@@ -7,7 +7,7 @@ const account = require('../model/account');
 const registeredParticipant = require('../model/registered-participant');
 const transaction = require('../model/transaction');
 
-const eventId = '6896dcd41cf97a5cf5485404';
+const eventId = '689f0e8752af0a442871cddc';
 
 async function seed(){
 

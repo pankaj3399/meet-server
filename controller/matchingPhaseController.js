@@ -69,7 +69,7 @@ exports.handleSwipe = async (req, res) => {
     const idUser = req.user;
     const idAccount = req.account;
     const userData = await user.get({ id: idUser });
-    const userId = userData._id
+    const userId = userData._id?.toString()
     
     if (!userId || !targetId || !eventId || !direction) {
       return res.status(400).json({ message: res.__('matching_room.invalid') });
@@ -144,14 +144,18 @@ exports.confirmSuperlike = async (req, res) => {
     const { superlikeFromId, eventId, confirm } = req.body;
     const idUser = req.user;
     const userData = await user.get({ id: idUser });
-    const userId = userData._id
+    const userId = userData._id?.toString();
     if (!userId || !superlikeFromId || !eventId) {
       return res.status(400).json({ message: res.__('matching_room.invalid') });
     }
-
+    
     if (confirm) {
-      await MatchInteraction.findOneAndUpdate(
-        { user_id: new mongoose.Types.ObjectId(superlikeFromId), target_id: new mongoose.Types.ObjectId(userId), event_id: new mongoose.Types.ObjectId(eventId), direction: 'confirmed_superlike' }
+      const data = await MatchInteraction.findOneAndUpdate(
+        { 
+          userId: new mongoose.Types.ObjectId(superlikeFromId), 
+          targetId: new mongoose.Types.ObjectId(userId), 
+          eventId: new mongoose.Types.ObjectId(eventId), 
+          direction: 'confirmed_superlike' }
       );
 
       const match = await ConfirmedMatch.create({
@@ -167,7 +171,7 @@ exports.confirmSuperlike = async (req, res) => {
       });
     } else {
       await MatchInteraction.findOneAndUpdate(
-        { user_id: new mongoose.Types.ObjectId(superlikeFromId), target_id: new mongoose.Types.ObjectId(userId), event_id: new mongoose.Types.ObjectId(eventId), direction: 'rejected_superlike' }
+        { userId: new mongoose.Types.ObjectId(superlikeFromId), targetId: new mongoose.Types.ObjectId(userId), eventId: new mongoose.Types.ObjectId(eventId), direction: 'rejected_superlike' }
       );
 
       return res.status(200).json({ match: false, message: res.__('matching_room.superlike_rejected') });
@@ -184,7 +188,7 @@ exports.undoSwipe = async (req, res) => {
     const idUser = req.user;
     const idAccount = req.account;
     const userData = await user.get({ id: idUser });
-    const userId = userData._id
+    const userId = userData._id?.toString()
     if (!userId || !eventId) {
       return res.status(400).json({ message: res.__('matching_room.not_found') });
     }
@@ -229,7 +233,7 @@ exports.getIncomingSuperlikes = async (req, res) => {
   const { eventId } = req.params;
   try {
     const userData = await user.get({ id: idUser });
-    const currentUserId = userData._id
+    const currentUserId = userData._id?.toString()
     const superlikes = await MatchInteraction.find({
       targetId: new mongoose.Types.ObjectId(currentUserId),
       direction: ['superlike'],
@@ -248,8 +252,7 @@ exports.getIncomingSuperlikes = async (req, res) => {
     const handledIds = new Set(alreadyHandled.map(i => i.target_id.toString()));
 
     const pendingIds = superlikers.filter(id => !handledIds.has(id));
-
-    const pendingUsers = await registeredParticipant.getPendingParticipants({ pendingIds, eventId: new mongoose.Types.ObjectId(eventId)})
+    const pendingUsers = await registeredParticipant.getPendingParticipants({ pendingIds, eventId: new mongoose.Types.ObjectId(eventId), userId: new mongoose.Types.ObjectId(currentUserId)})
 
     const data = pendingUsers?.length && await Promise.all(pendingUsers.map(async (dt) => {
         const obj = dt
@@ -293,7 +296,7 @@ exports.getMatchesWithChats = async (req, res) => {
   try {
     const idUser = req.user;
     const userData = await user.get({ id: idUser });
-    const currentUserId = userData._id;
+    const currentUserId = userData._id.toString();
     const page = parseInt(req.query.page || '1');
     const limit = parseInt(req.query.limit || '15');
 
@@ -337,7 +340,7 @@ exports.getUnMatched = async (req, res) => {
   try {
     const idUser = req.user;
     const userData = await user.get({ id: idUser });
-    const currentUserId = userData._id;
+    const currentUserId = userData._id?.toString();
     const page = parseInt(req.query.page || '1');
     const limit = parseInt(req.query.limit || '15');
 
@@ -383,7 +386,7 @@ exports.unlockChat = async function (req, res) {
     const idUser = req.user;
     const idAccount = req.account;
     const userData = await user.get({ id: idUser });
-    const userId = userData._id
+    const userId = userData._id?.toString();
     
     if (!userId || !targetId || !eventId) {
       return res.status(400).json({ message: res.__('matching_room.invalid') });

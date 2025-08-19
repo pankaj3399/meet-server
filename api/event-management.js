@@ -17,7 +17,6 @@ api.get('/api/events/dashboard', auth.verify('user'), use(eventManagementControl
 
 api.post('/api/events/register', auth.verify('owner'), use(registeredParticipantController.create));
 
-api.get('/api/events/:id', auth.verify('user'), use(eventManagementController.getById));
 
 api.post('/api/event/payment/:id', auth.verify('user'), use(registeredParticipantController.pay));
 
@@ -30,6 +29,7 @@ api.post('/api/event/success', auth.verify('user'), use(registeredParticipantCon
 
 api.post('/api/events/:id/cancel', auth.verify('user'), use(registeredParticipantController.cancel));
 
+api.get('/api/events/:id', auth.verify('user'), use(eventManagementController.getById));
 // Admin cancellations: entire event, group, or team
 // Removed admin routes; admin logic is implemented in meet-mission service
 

@@ -88,11 +88,10 @@ exports.dashboard = async function (req, res) {
  */
 exports.getById = async function (req, res) {
   const id = req.params.id;
-
   try {
-    utility.validate(id);
+    utility.assert(id, res.__('user.invalid_id'))
     const eventData = await event.getById({ id: new mongoose.Types.ObjectId(id) });
-    if(eventData){
+    if(eventData.image){
       const ext = await path.extname(eventData.image).slice(1);
       const previewSignedUrl = await s3.signedURLView({
         filename: `${eventData.image}`,

@@ -289,7 +289,7 @@ exports.getPendingParticipants = async function ({ pendingIds, userId, eventId }
     event_id: eventId,
     direction: { $in: ['confirmed_superlike', 'rejected_superlike'] }
   }).distinct('target_id');
-
+  
   const filteredPendingIds = pendingIds.filter(id => !handledSuperlikes.includes(id.toString()));
 
   if (!filteredPendingIds.length) return [];
