@@ -252,9 +252,35 @@ exports.pay = async function (req, res) {
           }
         } catch (e) { /* ignore invalid code */ }
       }
+      // If coupon exists, block if metadata indicates it was already manually redeemed by the same user
+      if (couponMeta?.id) {
+        try {
+          const promoCode = await stripe.promotionCode.retrieve({ id: couponMeta.id });
+          if (promoCode?.metadata?.manually_redeemed === 'true' && String(promoCode?.metadata?.redeemed_by_user_id) === String(req.user.id)){
+            return res.status(400).send({ error: 'Invalid coupon' });
+          }
+        } catch (e) {}
+      }
       // If final amount is below Stripe minimum (EUR ~ 50 cents), treat as free
       const MIN_EUR_CENTS = 50;
       if (finalAmountCents < MIN_EUR_CENTS) {
+        // If a coupon was used, manually mark redemption on Stripe
+        if (couponMeta?.id) {
+          try {
+            const promoCode = await stripe.promotionCode.retrieve({ id: couponMeta.id });
+            await stripe.promotionCode.update({ id: couponMeta.id, data: { metadata: {
+              ...(promoCode?.metadata || {}),
+              manually_redeemed: 'true',
+              redeemed_by_user_id: String(req.user.id),
+              redeemed_at: new Date().toISOString()
+            } }});
+            if (promoCode?.max_redemptions === 1) {
+              await stripe.promotionCode.update({ id: couponMeta.id, data: { active: false } });
+            }
+          } catch (e) {
+            console.error('Manual promo redemption failed', e);
+          }
+        }
         try {
           // Mark transaction paid
           await transaction.findOneAndUpdate({ id: new mongoose.Types.ObjectId(id) }, { status: 'paid' });
