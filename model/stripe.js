@@ -407,6 +407,14 @@ exports.promotionCode.findByCode = async function({ code }){
   return list.data?.[0] || null;
 }
 
+exports.promotionCode.retrieve = async function({ id }){
+  return await stripe.promotionCodes.retrieve(id);
+}
+
+exports.promotionCode.update = async function({ id, data }){
+  return await stripe.promotionCodes.update(id, data || {});
+}
+
 exports.promotionCode.deactivate = async function({ id }){
   try {
     return await stripe.promotionCodes.update(id, { active: false });

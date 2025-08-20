@@ -22,12 +22,20 @@ exports.validateEventCoupon = async function (req, res) {
       return res.status(400).send({ error: 'Invalid coupon' });
     }
 
+    // Prevent reuse by same user if promo code metadata indicates manual redemption
+    if (promo?.metadata?.manually_redeemed === 'true' && String(promo?.metadata?.redeemed_by_user_id) === String(req.user.id)) {
+      return res.status(400).send({ error: 'Invalid coupon' });
+    }
+
     const amountCents = Math.round((tx.amount || 0) * 100);
     let discountCents = 0;
     if (promo.coupon.amount_off) discountCents = Math.min(promo.coupon.amount_off, amountCents);
     else if (promo.coupon.percent_off) discountCents = Math.floor((promo.coupon.percent_off / 100) * amountCents);
 
     const finalCents = Math.max(amountCents - discountCents, 0);
+
+    // If this preview already implies a free order, indicate that redemption will be recorded on pay
+    const free = finalCents < 50;
     return res.status(200).send({ data: {
       coupon: {
         id: promo.id,
@@ -41,7 +49,8 @@ exports.validateEventCoupon = async function (req, res) {
         original: (amountCents/100).toFixed(2),
         discount: (discountCents/100).toFixed(2),
         final: (finalCents/100).toFixed(2)
-      }
+      },
+      free
     }});
   } catch (err) {
     return res.status(400).send({ error: err.message || 'Invalid coupon' });
