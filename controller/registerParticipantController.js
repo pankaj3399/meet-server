@@ -256,7 +256,8 @@ exports.pay = async function (req, res) {
       if (couponMeta?.id) {
         try {
           const promoCode = await stripe.promotionCode.retrieve({ id: couponMeta.id });
-          if (promoCode?.metadata?.manually_redeemed === 'true' && String(promoCode?.metadata?.redeemed_by_user_id) === String(req.user.id)){
+          // Block coupon if it has already been manually redeemed by any user
+          if (promoCode?.metadata?.manually_redeemed === 'true') {
             return res.status(400).send({ error: 'Invalid coupon' });
           }
         } catch (e) {}
