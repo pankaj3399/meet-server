@@ -23,7 +23,7 @@ exports.validateEventCoupon = async function (req, res) {
     }
 
     // Prevent reuse by same user if promo code metadata indicates manual redemption
-    if (promo?.metadata?.manually_redeemed === 'true' && String(promo?.metadata?.redeemed_by_user_id) === String(req.user.id)) {
+    if (promo?.metadata?.manually_redeemed === 'true' ) {
       return res.status(400).send({ error: 'Invalid coupon' });
     }
 
