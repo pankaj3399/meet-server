@@ -923,7 +923,7 @@ exports.cancel = async function (req, res) {
         const expiresAt = moment().add(24, 'months');
         const redeemBy = Math.floor(expiresAt.valueOf() / 1000);
 
-        // Determine amount paid by the user for this event
+        // Determine per-person amount paid by the user for this event
         const Transaction = mongoose.model('Transaction');
         const tx = await Transaction.findOne({
           user_id: new mongoose.Types.ObjectId(userData._id),
@@ -931,7 +931,14 @@ exports.cancel = async function (req, res) {
           status: 'paid',
           type: 'Register Event'
         }).lean();
-        const amountOffCents = tx && typeof tx.amount === 'number' ? Math.round(tx.amount * 100) : 0;
+
+        // If the transaction covered multiple participants (invited friend),
+        // only refund this user's share (per-person portion)
+        const participantsInTx = 1 + (Array.isArray(tx?.sub_participant_id) ? tx.sub_participant_id.length : 0);
+        const perPersonCents = (typeof tx?.amount === 'number')
+          ? Math.round((tx.amount * 100) / Math.max(participantsInTx, 1))
+          : 0;
+        const amountOffCents = perPersonCents;
         if (!amountOffCents || amountOffCents <= 0) {
           throw new Error('No paid transaction found for voucher calculation');
         }
