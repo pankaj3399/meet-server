@@ -356,3 +356,367 @@ exports.getById = async function ({ id }) {
     .populate('city', 'name')
     .populate('bars._id', 'name address image contact_person contact_details');
 };
+
+exports.getDashboardMatchingEvents = async function (userId) {
+  if (!userId) return [];
+
+  const today = moment().tz('Europe/Berlin').startOf('day').toDate(); // start of today
+
+  const uid = new mongoose.Types.ObjectId(userId);
+
+  const pipeline = [
+    // 1. Filter out drafts and canceled events
+    { 
+      $match: { 
+        $and: [
+          { is_draft: { $in: [false, null] } },
+          { is_canceled: { $in: [false, null] } }
+        ]
+      }
+    },
+
+    // 2. Lookup City
+    {
+      $lookup: {
+        from: 'city',
+        localField: 'city',
+        foreignField: '_id',
+        as: 'city'
+      }
+    },
+    { $unwind: { path: '$city', preserveNullAndEmptyArrays: true } },
+
+    // 3. Lookup Bars
+    { $unwind: { path: '$bars', preserveNullAndEmptyArrays: true }},
+    {
+      $lookup: {
+        from: 'location',
+        localField: 'bars._id',
+        foreignField: '_id',
+        as: 'bar_info'
+      }
+    },
+    { $unwind: { path: '$bar_info', preserveNullAndEmptyArrays: true } },
+
+    // 4. Lookup registration to ensure user paid
+    {
+      $lookup: {
+        from: 'registered-participants',
+        let: { eid: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$event_id', '$$eid'] },
+                  { $eq: ['$user_id', uid] },
+                  { $eq: ['$status', 'registered'] },
+                  { $or: [{ $eq: ['$is_cancelled', false] }, { $not: ['$is_cancelled'] }] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'user_registered'
+      }
+    },
+    { $addFields: { is_registered: { $gt: [{ $size: '$user_registered' }, 0] } } },
+    { $match: { is_registered: true } },
+
+    // 5. Prevent past event to show
+    {
+      $addFields: {
+        eventStart: {
+          $dateFromParts: {
+            year: { $year: '$date' },
+            month: { $month: '$date' },
+            day: { $dayOfMonth: '$date' },
+            hour: 0,
+            minute: 0,
+            second: 0,
+            timezone: 'Europe/Berlin'
+          }
+        },
+        eventEnd: {
+          $add: [
+            '$date',
+            1000 * 60 * 60 * 24 * 28 // +28 days
+          ]
+        }
+      }
+    },
+    {
+      $match: {
+        eventStart: {
+          $gte: today,
+          $lt: moment(today).tz('Europe/Berlin').add(2, 'days').toDate()
+        }
+      }
+    },
+
+    // 6. Lookup Group (slot 1) with user's team membership
+    {
+      $lookup: {
+        from: 'teams',
+        let: { eid: '$_id' },
+        pipeline: [
+          {
+            $match: { $expr: { $and: [
+              { $eq: ['$event_id', '$$eid'] },
+              { $in: [uid, '$members'] }
+            ] } }
+          }
+        ],
+        as: 'user_team'
+      }
+    },
+    { $unwind: { path: '$user_team', preserveNullAndEmptyArrays: true } },
+
+    {
+      $lookup: {
+        from: 'groups',
+        let: { eid: '$_id', tid: '$user_team._id' },
+        pipeline: [
+          {
+            $match: { $expr: { $and: [
+              { $eq: ['$event_id', '$$eid'] },
+              { $eq: ['$slot', 1] },
+              { $in: ['$$tid', '$team_ids'] }
+            ] } }
+          },
+          {
+            $lookup: {
+              from: 'location',
+              localField: 'bar_id',
+              foreignField: '_id',
+              as: 'group_bar'
+            }
+          },
+          { $unwind: { path: '$group_bar', preserveNullAndEmptyArrays: true } }
+        ],
+        as: 'group'
+      }
+    },
+    { $unwind: { path: '$group', preserveNullAndEmptyArrays: true } },
+
+    // 7. Final projection and regroup bars
+    {
+      $group: {
+        _id: '$_id',
+        date: { $first: '$date' },
+        tagline: { $first: '$tagline' },
+        image: { $first: '$image' },
+        city: { $first: '$city' },
+        bars: { 
+          $push: {
+            _id: '$bars._id',
+            available_spots: '$bars.available_spots',
+            name: '$bar_info.name',
+            address: '$bar_info.address',
+            image: '$bar_info.image',
+            contact_person: '$bar_info.contact_person',
+            contact_details: '$bar_info.contact_details'
+          }
+        },
+        group: { $first: '$group' }
+      },
+    },
+
+    // 8. Sort and clean up fields
+    { $sort: { date: -1 } },
+    {
+      $project: {
+        user_registered: 0,
+        is_registered: 0,
+        validUntil: 0
+      }
+    }
+  ];
+
+  return mongoose.model('EventManagement').aggregate(pipeline).exec();
+};
+
+exports.getDashboardMatchingEventsEnd = async function (userId) {
+  if (!userId) return [];
+
+  const today = moment().tz('Europe/Berlin').startOf('day').toDate();
+
+  const uid = new mongoose.Types.ObjectId(userId);
+
+  const pipeline = [
+    // 1. Filter out drafts and canceled events
+    { 
+      $match: { 
+        $and: [
+          { is_draft: { $in: [false, null] } },
+          { is_canceled: { $in: [false, null] } }
+        ]
+      }
+    },
+
+    // 2. Lookup City
+    {
+      $lookup: {
+        from: 'city',
+        localField: 'city',
+        foreignField: '_id',
+        as: 'city'
+      }
+    },
+    { $unwind: { path: '$city', preserveNullAndEmptyArrays: true } },
+
+    // 3. Lookup Bars
+    { $unwind: { path: '$bars', preserveNullAndEmptyArrays: true }},
+    {
+      $lookup: {
+        from: 'location',
+        localField: 'bars._id',
+        foreignField: '_id',
+        as: 'bar_info'
+      }
+    },
+    { $unwind: { path: '$bar_info', preserveNullAndEmptyArrays: true } },
+
+    // 4. Lookup registration to ensure user paid
+    {
+      $lookup: {
+        from: 'registered-participants',
+        let: { eid: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$event_id', '$$eid'] },
+                  { $eq: ['$user_id', uid] },
+                  { $eq: ['$status', 'registered'] },
+                  { $or: [{ $eq: ['$is_cancelled', false] }, { $not: ['$is_cancelled'] }] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'user_registered'
+      }
+    },
+    { $addFields: { is_registered: { $gt: [{ $size: '$user_registered' }, 0] } } },
+    { $match: { is_registered: true } },
+
+    // 5. Prevent past event to show
+    {
+      $addFields: {
+        eventStart: {
+          $dateFromParts: {
+            year: { $year: '$date' },
+            month: { $month: '$date' },
+            day: { $dayOfMonth: '$date' },
+            hour: 0,
+            minute: 0,
+            second: 0,
+            timezone: 'Europe/Berlin'
+          }
+        },
+        eventEnd: {
+          $add: [
+            '$date',
+            1000 * 60 * 60 * 24 * 28 // +28 days
+          ]
+        },
+        graceEnd: {
+          $add: [
+            '$date',
+            1000 * 60 * 60 * 24 * 30 // 28 + 2 days grace
+          ]
+        }
+      }
+    },
+    {
+      $match: {
+        $and: [
+          { eventEnd: { $lt: today } },
+          { graceEnd: { $gte: today } }
+        ]
+      }
+    },
+
+    // 6. Lookup Group (slot 1) with user's team membership
+    {
+      $lookup: {
+        from: 'teams',
+        let: { eid: '$_id' },
+        pipeline: [
+          {
+            $match: { $expr: { $and: [
+              { $eq: ['$event_id', '$$eid'] },
+              { $in: [uid, '$members'] }
+            ] } }
+          }
+        ],
+        as: 'user_team'
+      }
+    },
+    { $unwind: { path: '$user_team', preserveNullAndEmptyArrays: true } },
+
+    {
+      $lookup: {
+        from: 'groups',
+        let: { eid: '$_id', tid: '$user_team._id' },
+        pipeline: [
+          {
+            $match: { $expr: { $and: [
+              { $eq: ['$event_id', '$$eid'] },
+              { $eq: ['$slot', 1] },
+              { $in: ['$$tid', '$team_ids'] }
+            ] } }
+          },
+          {
+            $lookup: {
+              from: 'location',
+              localField: 'bar_id',
+              foreignField: '_id',
+              as: 'group_bar'
+            }
+          },
+          { $unwind: { path: '$group_bar', preserveNullAndEmptyArrays: true } }
+        ],
+        as: 'group'
+      }
+    },
+    { $unwind: { path: '$group', preserveNullAndEmptyArrays: true } },
+
+    // 7. Final projection and regroup bars
+    {
+      $group: {
+        _id: '$_id',
+        date: { $first: '$date' },
+        tagline: { $first: '$tagline' },
+        image: { $first: '$image' },
+        city: { $first: '$city' },
+        bars: { 
+          $push: {
+            _id: '$bars._id',
+            available_spots: '$bars.available_spots',
+            name: '$bar_info.name',
+            address: '$bar_info.address',
+            image: '$bar_info.image',
+            contact_person: '$bar_info.contact_person',
+            contact_details: '$bar_info.contact_details'
+          }
+        },
+        group: { $first: '$group' }
+      },
+    },
+
+    // 8. Sort and clean up fields
+    { $sort: { date: -1 } },
+    {
+      $project: {
+        user_registered: 0,
+        is_registered: 0,
+        validUntil: 0
+      }
+    }
+  ];
+
+  return mongoose.model('EventManagement').aggregate(pipeline).exec();
+};

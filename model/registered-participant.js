@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const Transaction = require('./transaction').schema;
 const MatchInteraction = require('./matching-interaction').schema;
+const Teams = require('./team').schema;
 
 // Main schema
 const RegisteredParticipantSchema = new Schema({
@@ -90,6 +91,15 @@ exports.getNearestUpcomingEvent = async function ({ id }) {
       }
     },
     { $unwind: '$event' },
+    {
+      $lookup: {
+        from: 'city', // collection name in MongoDB (check this!)
+        localField: 'event.city',
+        foreignField: '_id',
+        as: 'event.city',
+      }
+    },
+    { $unwind: '$event.city' },
     { $match: { 'event.date': { $gte: now } } },
     { $sort: { 'event.date': 1 } },
     { $limit: 1 }
@@ -120,11 +130,24 @@ exports.getNearestUpcomingEvent = async function ({ id }) {
       .populate('user_id', 'first_name last_name email name') // populate invited user details
       .lean();
   }
+  let partner;
+  if(invitedFriends?.length < 1){
+    const team = await Teams.findOne({
+      event_id: new mongoose.Types.ObjectId(eventId),
+      members: new mongoose.Types.ObjectId(id),
+    }).populate("members", 'first_name last_name name'); // populate User details
+    if (team) {
+      // filter out current user to get partner(s)
+      partner = team.members.filter(
+        (member) => member._id.toString() !== id.toString()
+      );
+    }
+  }
 
   // 3. Return the event with invited friends
   return {
     event: upcoming.event,
-    invited_friends: invitedFriends.map(tx => upcoming.is_main_user ? tx.invited_user_id : tx.user_id)
+    invited_friends: partner || invitedFriends?.map(tx => upcoming.is_main_user ? (tx.invited_user_id || partner[0]) : tx.user_id)
   };
 };
 

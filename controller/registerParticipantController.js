@@ -884,12 +884,10 @@ exports.cancel = async function (req, res) {
       status: 'registered',
     });
     utility.assert(registration, res.__('event.invalid'));
-    console.log(registration);
 
     // Get event details
     const eventData = await event.getById({ id: eventIdObj });
     utility.assert(eventData, res.__('event.invalid'));
-    console.log(eventData);
     // Compute event start in Europe/Berlin timezone robustly (handles "HH:MM - HH:MM")
     const moment = require('moment-timezone');
     const timeStr = String(eventData.start_time || '00:00');

@@ -20,7 +20,7 @@ exports.checkout = async function (req, res) {
       const payment = await transaction.create({
         user_id: userData._id,
         type: 'Buy Hearts',
-        amount: (amount / 100) * 7,
+        amount: amount === 700 ? 28 : (amount === 250 ? 14 : 7),
         quantity: amount,
         status: 'unpaid'
       })

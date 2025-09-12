@@ -5,6 +5,7 @@ const s3 = require('../helper/s3');
 const path = require('path');
 const registeredParticipant = require('../model/registered-participant');
 const user = require('../model/user');
+const eventManagement = require('../model/event-management');
 
 /*
  * event.get()
@@ -73,10 +74,14 @@ exports.dashboard = async function (req, res) {
         dataEvent.event.image = previewSignedUrl;
       }
     }
-    const pastEvents = await registeredParticipant.getPastEvent({ id: new mongoose.Types.ObjectId(userData._id) })
+    const pastEvents = await registeredParticipant.getPastEvent({ id: new mongoose.Types.ObjectId(userData._id) });
+    const currentEvents = await eventManagement.getDashboardMatchingEvents(new mongoose.Types.ObjectId(userData._id))
+    const endEvents = await eventManagement.getDashboardMatchingEventsEnd(new mongoose.Types.ObjectId(userData._id))
     return res.status(200).send({ data: {
       upcoming: dataEvent,
-      past: pastEvents
+      past: pastEvents,
+      current: currentEvents,
+      end: endEvents?.length
     } });
   } catch (err) {
     return res.status(500).send({ error: err.message });
