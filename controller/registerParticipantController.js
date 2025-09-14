@@ -189,7 +189,7 @@ const addToWaitlist = async (mainParticipant, friendParticipant, eventId, age_gr
   });
 }
 
-const sendEventAvailabilityMailToWaitlist = async (registration)=>{
+const sendEventAvailabilityMailToWaitlist = async (registration, res)=>{
   try {
     const waitlistedParticipants = await Waitlist.find({
       event_id: registration.event_id,
@@ -215,7 +215,7 @@ const sendEventAvailabilityMailToWaitlist = async (registration)=>{
         to: participant.user_id.email,
         locale: participant.user_id.locale || 'en',
         template: 'template',
-        subject: 'waitlist.alert.subject',
+        subject: res.__('waitlist.alert.subject'),
         custom: true,
         content: {
           body: res.__('waitlist.alert.body', {
@@ -1113,7 +1113,7 @@ exports.cancel = async function (req, res) {
       { new: true }
     );
 
-    void sendEventAvailabilityMailToWaitlist(registration).catch(console.error);
+    void sendEventAvailabilityMailToWaitlist(registration, res).catch(console.error);
 
     let voucher = null;
     if (timely) {
