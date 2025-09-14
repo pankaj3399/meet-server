@@ -248,20 +248,17 @@ exports.create = async function (req, res) {
     await checkEventFull(id);
     const ageGroupCheck = verifyAgeGroup(mainUser, friend, age_group);
     if(!ageGroupCheck) {
-      await session.abortTransaction();
-      await session.endSession();
       throw ({ message: res.__('register_participant.age_group.invalid') })
     } 
     const userData = await user.get({ id: idUser });
     const existingRegistration = await RegisteredParticipant.findOne({
       user_id: userData._id,
       event_id: id,
-      age_group: age_group
+      age_group: age_group,
+      status: { $in: ['registered', 'waitlist'] }
     })
 
     if (existingRegistration) {
-      await session.abortTransaction();
-      await session.endSession();
       throw ({ message: res.__('register_participant.already_registered') })
     }
     let registerFriend;
