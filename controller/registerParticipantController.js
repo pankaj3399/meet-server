@@ -18,7 +18,7 @@ const ageUtil  = require('../helper/age');
 require('dotenv').config()
 const RegisteredParticipant = mongoose.model("RegisteredParticipant");
 const Waitlist = mongoose.model("Waitlist");
-const ALLOW_ANYONE_THRESHOLD = process.env.ALLOW_ANYONE_THRESHOLD
+const CHECK_FOR_THRESHOLD_START = process.env.CHECK_FOR_THRESHOLD_START
 const checkEventFull = async (eventId) => {
   const eventData = await event.getById({ id: eventId });
   const registeredCount = await RegisteredParticipant.countDocuments({
@@ -94,9 +94,9 @@ const checkGenderRatio = async (mainUser, friend, eventId, age_group, session) =
     age_group: age_group
   }).session(session);
 
-  let threshold = ALLOW_ANYONE_THRESHOLD - 1
+  let threshold = CHECK_FOR_THRESHOLD_START - 1
   if(friend.email) {
-    threshold = ALLOW_ANYONE_THRESHOLD - 2
+    threshold = CHECK_FOR_THRESHOLD_START - 2
   }
   console.log(eventParticipants.length, 'eventParticipants.length');
   console.log(threshold, 'threshold');
@@ -255,7 +255,7 @@ exports.create = async function (req, res) {
       user_id: userData._id,
       event_id: id,
       age_group: age_group,
-      status: { $in: ['registered', 'waitlist'] }
+      status: { $in: ['registered', 'waitlist', 'process'] }
     })
 
     if (existingRegistration) {
