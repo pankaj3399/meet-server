@@ -177,6 +177,15 @@ const checkCapacityWithWarning = async (eventId) => {
 };
 
 const addToWaitlist = async (mainParticipant, friendParticipant, eventId, age_group, session) => {
+  const existingWaitlist = await Waitlist.findOne({
+    event_id: eventId,
+    user_id: mainParticipant.user_id,
+    age_group: age_group
+  })
+
+  if(existingWaitlist) {
+    return
+  }
   await Waitlist.create([{
     event_id: eventId,
     user_id: mainParticipant.user_id,
@@ -215,14 +224,14 @@ const sendEventAvailabilityMailToWaitlist = async (registration, res)=>{
         to: participant.user_id.email,
         locale: participant.user_id.locale || 'en',
         template: 'template',
-        subject: res.__('waitlist.alert.subject'),
+        subject: res.__({ phrase: 'waitlist.alert.subject', locale: participant.user_id.locale || 'en' }),
         custom: true,
         content: {
-          body: res.__('waitlist.alert.body', {
+          body: res.__({ phrase: 'waitlist.alert.body', locale: participant.user_id.locale || 'en' }, {
             name: participant.user_id.first_name,
             amount: payment.amount
           }),
-          button_label: res.__('waitlist.alert.button-label'),
+          button_label: res.__({ phrase: 'waitlist.alert.button-label', locale: participant.user_id.locale || 'en' }),
           button_url: `${process.env.CLIENT_URL}/event/${payment._id}`    
         }
         })
