@@ -253,6 +253,17 @@ exports.create = async function (req, res) {
       throw ({ message: res.__('register_participant.age_group.invalid') })
     } 
     const userData = await user.get({ id: idUser });
+    const existingRegistration = await registeredParticipant.findOne({
+      user_id: userData._id,
+      event_id: id,
+      age_group: age_group
+    })
+
+    if (existingRegistration) {
+      await session.abortTransaction();
+      await session.endSession();
+      throw ({ message: res.__('register_participant.already_registered') })
+    }
     let registerFriend;
     let friendAdded;
 

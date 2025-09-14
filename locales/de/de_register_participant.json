@@ -3,5 +3,6 @@
   "age_group":{
     "invalid": "Bitte wählen Sie Ihre Altersgruppe korrekt aus"
   },
-  "waitlist":"Sie wurden der Warteliste hinzugefügt"
+  "waitlist":"Sie wurden der Warteliste hinzugefügt",
+  "already_registered": "Sie haben sich bereits für diese Veranstaltung angemeldet"
 }
