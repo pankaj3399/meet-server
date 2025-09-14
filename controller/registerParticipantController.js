@@ -253,7 +253,7 @@ exports.create = async function (req, res) {
       throw ({ message: res.__('register_participant.age_group.invalid') })
     } 
     const userData = await user.get({ id: idUser });
-    const existingRegistration = await registeredParticipant.findOne({
+    const existingRegistration = await RegisteredParticipant.findOne({
       user_id: userData._id,
       event_id: id,
       age_group: age_group
