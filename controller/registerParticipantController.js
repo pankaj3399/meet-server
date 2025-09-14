@@ -14,9 +14,11 @@ const joi = require('joi');
 const account = require('../model/account');
 const mail = require('../helper/mail');
 const token = require('../model/token');
-
+const ageUtil  = require('../helper/age');
+require('dotenv').config()
 const RegisteredParticipant = mongoose.model("RegisteredParticipant");
-
+const Waitlist = mongoose.model("Waitlist");
+const ALLOW_ANYONE_THRESHOLD = process.env.ALLOW_ANYONE_THRESHOLD
 const checkEventFull = async (eventId) => {
   const eventData = await event.getById({ id: eventId });
   const registeredCount = await RegisteredParticipant.countDocuments({
@@ -34,7 +36,110 @@ const checkEventFull = async (eventId) => {
   }
 
   return true;
-};
+}; 
+
+const verifyAgeGroup = (mainUser, friend, age_group) => {
+  const mainUserAge = ageUtil.getAgeFromDOB(mainUser.date_of_birth);
+  const friendAge = friend.email ? ageUtil.getAgeFromDOB(friend.date_of_birth) : null;
+  if(age_group == "20–30") {
+    if(mainUserAge < 20 || mainUserAge > 30) {
+      return false
+    }
+    if(friendAge) {
+      if(friendAge < 20 || friendAge > 30) {
+        return false
+      }
+    }
+  }
+  else if(age_group == "31–40") {
+    if(mainUserAge < 31 || mainUserAge > 40) {
+      return false
+    }
+    if(friendAge) {
+      if(friendAge < 31 || friendAge > 40) {
+        return false
+      }
+    }
+  }
+  else if(age_group == "41–50") {
+    if(mainUserAge < 41 || mainUserAge > 50) {
+      return false
+    }
+    if(friendAge) {
+      if(friendAge < 41 || friendAge > 50) {
+        return false
+      }
+    }
+  }
+  else if(age_group == "50+") {
+    if(mainUserAge < 50) {
+      return false
+    }
+    if(friendAge) {
+      if(friendAge < 50) {
+        return false
+      }
+    }
+  }
+  return true
+}
+
+const checkGenderRatio = async (mainUser, friend, eventId, age_group, session) => {
+  console.log("Hello hellooooooooooo")
+  console.log(mainUser, 'mainUser');
+  console.log(friend, 'friend');
+  const eventParticipants = await RegisteredParticipant.find({
+    event_id: eventId,
+    status: "registered",
+    age_group: age_group
+  }).session(session);
+
+  let threshold = ALLOW_ANYONE_THRESHOLD - 1
+  if(friend.email) {
+    threshold = ALLOW_ANYONE_THRESHOLD - 2
+  }
+  console.log(eventParticipants.length, 'eventParticipants.length');
+  console.log(threshold, 'threshold');
+  if(eventParticipants.length < threshold) {
+    return true
+  }
+
+  let maleParticipantsCount = eventParticipants.filter(participant => participant.gender === "male").length
+  let femaleParticipantsCount = eventParticipants.filter(participant => participant.gender === "female").length
+
+  let isRegisteringMale = false
+
+  if(mainUser.gender == "male") {
+    maleParticipantsCount++
+    isRegisteringMale = true
+  }
+  else if(mainUser.gender == "female") {
+    femaleParticipantsCount++
+    isRegisteringMale = false
+  }
+
+  if(friend.email){
+    if(friend.gender == "male") {
+      maleParticipantsCount++
+    }
+    else if(friend.gender == "female") {
+      femaleParticipantsCount++
+    }
+  }
+
+  const totalParticipants = maleParticipantsCount + femaleParticipantsCount
+
+  const maleRatio = (maleParticipantsCount / totalParticipants) * 100
+  const femaleRatio = (femaleParticipantsCount / totalParticipants) * 100
+
+  if(isRegisteringMale && maleRatio > 60 ) {
+    return false
+  }
+  else if(!isRegisteringMale && femaleRatio > 60) {
+    return false
+  }
+  return true
+}
 
 const checkCapacityWithWarning = async (eventId) => {
   const eventData = await event.getById({ id: eventId });
@@ -71,24 +176,91 @@ const checkCapacityWithWarning = async (eventId) => {
   };
 };
 
+const addToWaitlist = async (mainParticipant, friendParticipant, eventId, age_group, session) => {
+  await Waitlist.create([{
+    event_id: eventId,
+    user_id: mainParticipant.user_id,
+    participant_id: mainParticipant._id,
+    age_group: age_group,
+    invited_user_id: friendParticipant ? friendParticipant.user_id: null,
+    sub_participant_id: friendParticipant ? friendParticipant._id : null
+  }], {
+    session: session ? session : null
+  });
+}
+
+const sendEventAvailabilityMailToWaitlist = async (registration)=>{
+  try {
+    const waitlistedParticipants = await Waitlist.find({
+      event_id: registration.event_id,
+      age_group: registration.age_group
+    }).populate("user_id", "email first_name locale")
+  
+    console.log(waitlistedParticipants, 'waitlistedParticipants');
+  
+    waitlistedParticipants.forEach(async (participant) => {
+      
+      const payment = await transaction.create({
+        user_id: participant.user_id._id,
+        participant_id: participant.participant_id,
+        ...participant.sub_participant_id && {sub_participant_id: [participant.sub_participant_id]},
+        ...participant.invited_user_id && {invited_user_id: registerFriend.invited_user_id},
+        type: 'Register Event',
+        amount: participant.sub_participant_id ? 40 : 20,
+        event_id: participant.event_id,
+        status: 'unpaid'
+      })
+  
+      await mail.send({
+        to: participant.user_id.email,
+        locale: participant.user_id.locale || 'en',
+        template: 'template',
+        subject: 'waitlist.alert.subject',
+        custom: true,
+        content: {
+          body: res.__('waitlist.alert.body', {
+            name: participant.user_id.first_name,
+            amount: payment.amount
+          }),
+          button_label: res.__('waitlist.alert.button-label'),
+          button_url: `${process.env.CLIENT_URL}/event/${payment._id}`    
+        }
+        })
+        console.log('Mail for link', `${process.env.CLIENT_URL}/event/${payment._id}`, 'sent');
+      
+    })
+  } catch (error) {
+    console.log('error', error);
+  }
+}
+
 /*
  * registerParticipant.create()
  */
 exports.create = async function (req, res) {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     const idUser = req.user;
     utility.assert(req.body, ['mainUser', 'friend', 'id'] , res.__('register_participant.invalid'));
-    const { mainUser, friend, id } = req.body
+    const { mainUser, friend, id, age_group } = req.body
 
     await checkEventFull(id);
-
+    const ageGroupCheck = verifyAgeGroup(mainUser, friend, age_group);
+    if(!ageGroupCheck) {
+      await session.abortTransaction();
+      await session.endSession();
+      throw ({ message: res.__('register_participant.age_group.invalid') })
+    } 
     const userData = await user.get({ id: idUser });
     let registerFriend;
     let friendAdded;
+
+    const genderRatioCheck = await checkGenderRatio(mainUser, friend, id, age_group, session);
     if(friend?.email){
       if (mainUser.email === friend.email)
-       throw ({ message: res.__('user.create.duplicate') })
-
+        throw ({ message: res.__('user.create.duplicate') })
+      
       const friendData = await user.get({ email: friend.email});
       
       if(!friendData){
@@ -104,6 +276,7 @@ exports.create = async function (req, res) {
       } else {
         friendAdded = friendData;
       }
+     
       registerFriend = await registeredParticipant.create({
         user_id: friendAdded._id,
         event_id: id,
@@ -111,6 +284,7 @@ exports.create = async function (req, res) {
         last_name: friend.last_name,
         gender: friend.gender || null,
         date_of_birth: friend.date_of_birth,
+        age_group: age_group,
         children: friend.children === 'Yes' ? true : false,
         email: friend.email,
         is_main_user: false,
@@ -121,8 +295,8 @@ exports.create = async function (req, res) {
         describe_you_better: friend.describe_you_better,
         describe_role_in_relationship: friend.describe_role_in_relationship,
         looking_for: friend.looking_for,
-        status: 'process'
-      })
+        status: genderRatioCheck ? 'process' : 'waitlist'
+      }, session)
       console.log(registerFriend, 'registerFriend');
       
     }
@@ -133,6 +307,7 @@ exports.create = async function (req, res) {
         last_name: mainUser.last_name,
         gender: mainUser.gender || null,
         date_of_birth: mainUser.date_of_birth,
+        age_group: age_group,
         children: mainUser.children === 'Yes' ? true : false,
         email: mainUser.email,
         is_main_user: true,
@@ -143,9 +318,8 @@ exports.create = async function (req, res) {
         describe_you_better: mainUser.describe_you_better,
         describe_role_in_relationship: mainUser.describe_role_in_relationship,
         looking_for: mainUser.looking_for,
-        status: 'process'
-    })
-
+        status: genderRatioCheck ? 'process' : 'waitlist'
+    }, session)
     await user.update({ 
       _id: new mongoose.Types.ObjectId(userData._id),
       data: {
@@ -156,8 +330,16 @@ exports.create = async function (req, res) {
         describe_role_in_relationship: mainUser.describe_role_in_relationship
       }
     })
-
     console.log(registerMainUser, 'registerMainUser');
+      if(!genderRatioCheck) {
+        await addToWaitlist(registerMainUser,registerFriend, id, age_group, session)
+        await session.commitTransaction();
+        await session.endSession();
+        return res.status(200).send({data: { 
+          status: 'waitlist', 
+          message: res.__('register_participant.waitlist') 
+        }})
+      }
     const payment = await transaction.create({
       user_id: userData._id,
       participant_id: registerMainUser._id,
@@ -167,15 +349,18 @@ exports.create = async function (req, res) {
       amount: registerFriend ? 40 : 20,
       event_id: id,
       status: 'unpaid'
-    })
-    
+    }, session)
+    await session.commitTransaction();
+    await session.endSession();
     // const register = await registeredParticipant.create();
     return res.status(200).send({ data: {
+      status: 'payment',
       id: payment._id
     } });
   } catch (err) {
     console.log(err, 'err');
-    
+    await session.abortTransaction();
+    await session.endSession();
     return res.status(500).send({ error: err.message });
   }
 };
@@ -299,6 +484,12 @@ exports.pay = async function (req, res) {
               { id: new mongoose.Types.ObjectId(transactionUser.participant_id) },
               { status: 'registered' }
             );
+
+            // Remove from waiting list if present
+            await Waitlist.findOneAndDelete({
+              event_id: new mongoose.Types.ObjectId(transactionUser.event_id),
+              participant_id: new mongoose.Types.ObjectId(transactionUser.participant_id),
+            })
             await mail.send({
               to: mainUser.email,
               locale: req.locale,
@@ -644,6 +835,14 @@ exports.successPayment = async function (req, res) {
         status: "registered",
       }
     );
+
+    // Delete waiting list participant
+    
+    await Waitlist.findOneAndDelete({
+      participant_id: new mongoose.Types.ObjectId(transactionUser.participant_id),
+      event_id: new mongoose.Types.ObjectId(transactionUser.event_id),
+    })
+
     const mainUserUpdated = await user.update({
       id: req.user,
       account: req.account,
@@ -913,6 +1112,8 @@ exports.cancel = async function (req, res) {
       },
       { new: true }
     );
+
+    void sendEventAvailabilityMailToWaitlist(registration).catch(console.error);
 
     let voucher = null;
     if (timely) {

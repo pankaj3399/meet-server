@@ -1,0 +1,7 @@
+{
+    "alert":{
+        "subject":"Pay your registration fee",
+        "body":"Hello {{name}},\n\nHere's your chance to get out of the waitlist.\nPlease pay your registration fee of ${{amount}} for the event by clicking on the link below.\n\n",
+        "button-label":"Pay Now"
+    }
+}

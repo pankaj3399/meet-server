@@ -28,7 +28,7 @@ exports.schema = Transaction;
 /*
 * transaction.create()
 */
-exports.create = async function (transaction) {
+exports.create = async function (transaction, session) {
   const data = new Transaction({
     user_id: transaction.user_id,
     ...transaction.participant_id && {participant_id: transaction.participant_id},
@@ -40,7 +40,9 @@ exports.create = async function (transaction) {
     ...transaction.quantity && {quantity: transaction.quantity},
     status: transaction.status || 'unpaid'
   });
-  await data.save();
+  await data.save({
+    session: session ? session : null
+  });
   return data;
 };
 

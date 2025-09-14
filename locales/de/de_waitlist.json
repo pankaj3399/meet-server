@@ -1,0 +1,8 @@
+{
+    "alert": {
+      "subject": "Zahlen Sie Ihre Registrierungsgebühr",
+      "body": "Hallo {{name}},\n\nHier ist Ihre Chance, von der Warteliste zu kommen.\nBitte zahlen Sie Ihre Registrierungsgebühr von ${{amount}} für die Veranstaltung, indem Sie auf den untenstehenden Link klicken.\n\n",
+      "button-label": "Jetzt bezahlen"
+    }
+  }
+  

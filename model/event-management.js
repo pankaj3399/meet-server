@@ -147,13 +147,45 @@ exports.get = async function ({ search = '', city = '', user_id = null }) {
         }
       },
       {
+        $lookup: {
+          from: 'registered-participants',
+          let: { eventId: '$_id', userId: new mongoose.Types.ObjectId(user_id) },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$event_id', '$$eventId'] },
+                    { $eq: ['$user_id', '$$userId'] },
+                    { $eq: ['$status', 'waitlist'] },
+                    {
+                      $or: [
+                        { $eq: ['$is_cancelled', false] },
+                        { $not: ['$is_cancelled'] } // also checks if it doesn't exist
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'user_waitlisted'
+        }
+      },
+      {
         $addFields: {
           is_registered: { $gt: [{ $size: '$user_registered' }, 0] }
         }
       },
       {
+        $addFields: {
+          is_waitlisted: { $gt: [{ $size: '$user_waitlisted' }, 0] }
+        }
+      },
+      {
         $project: {
-          user_registered: 0
+          user_registered: 0,
+          user_waitlisted: 0
         }
       }
     ] : []),
