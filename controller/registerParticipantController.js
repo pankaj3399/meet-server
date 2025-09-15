@@ -14,7 +14,7 @@ const joi = require('joi');
 const account = require('../model/account');
 const mail = require('../helper/mail');
 const token = require('../model/token');
-const ageUtil  = require('../helper/age');
+const ageUtil = require('../helper/age');
 require('dotenv').config()
 const RegisteredParticipant = mongoose.model("RegisteredParticipant");
 const Waitlist = mongoose.model("Waitlist");
@@ -36,47 +36,47 @@ const checkEventFull = async (eventId) => {
   }
 
   return true;
-}; 
+};
 
 const verifyAgeGroup = (mainUser, friend, age_group) => {
   const mainUserAge = ageUtil.getAgeFromDOB(mainUser.date_of_birth);
   const friendAge = (friend && friend.email) ? ageUtil.getAgeFromDOB(friend.date_of_birth) : null;
-  if(age_group == "20–30") {
-    if(mainUserAge < 20 || mainUserAge > 30) {
+  if (age_group == "20–30") {
+    if (mainUserAge < 20 || mainUserAge > 30) {
       return false
     }
-    if(friendAge) {
-      if(friendAge < 20 || friendAge > 30) {
+    if (friendAge) {
+      if (friendAge < 20 || friendAge > 30) {
         return false
       }
     }
   }
-  else if(age_group == "31–40") {
-    if(mainUserAge < 31 || mainUserAge > 40) {
+  else if (age_group == "31–40") {
+    if (mainUserAge < 31 || mainUserAge > 40) {
       return false
     }
-    if(friendAge) {
-      if(friendAge < 31 || friendAge > 40) {
+    if (friendAge) {
+      if (friendAge < 31 || friendAge > 40) {
         return false
       }
     }
   }
-  else if(age_group == "41–50") {
-    if(mainUserAge < 41 || mainUserAge > 50) {
+  else if (age_group == "41–50") {
+    if (mainUserAge < 41 || mainUserAge > 50) {
       return false
     }
-    if(friendAge) {
-      if(friendAge < 41 || friendAge > 50) {
+    if (friendAge) {
+      if (friendAge < 41 || friendAge > 50) {
         return false
       }
     }
   }
-  else if(age_group == "50+") {
-    if(mainUserAge < 50) {
+  else if (age_group == "50+") {
+    if (mainUserAge < 50) {
       return false
     }
-    if(friendAge) {
-      if(friendAge < 50) {
+    if (friendAge) {
+      if (friendAge < 50) {
         return false
       }
     }
@@ -95,12 +95,12 @@ const checkGenderRatio = async (mainUser, friend, eventId, age_group, session) =
   }).session(session ? session : null);
 
   let threshold = CHECK_FOR_THRESHOLD_START - 1
-  if(friend && friend.email) {
+  if (friend && friend.email) {
     threshold = CHECK_FOR_THRESHOLD_START - 2
   }
   console.log(eventParticipants.length, 'eventParticipants.length');
   console.log(threshold, 'threshold');
-  if(eventParticipants.length < threshold) {
+  if (eventParticipants.length < threshold) {
     return true
   }
 
@@ -109,20 +109,20 @@ const checkGenderRatio = async (mainUser, friend, eventId, age_group, session) =
 
   let isRegisteringMale = false
 
-  if(mainUser.gender == "male") {
+  if (mainUser.gender == "male") {
     maleParticipantsCount++
     isRegisteringMale = true
   }
-  else if(mainUser.gender == "female") {
+  else if (mainUser.gender == "female") {
     femaleParticipantsCount++
     isRegisteringMale = false
   }
 
-  if(friend && friend.email){
-    if(friend.gender == "male") {
+  if (friend && friend.email) {
+    if (friend.gender == "male") {
       maleParticipantsCount++
     }
-    else if(friend.gender == "female") {
+    else if (friend.gender == "female") {
       femaleParticipantsCount++
     }
   }
@@ -132,10 +132,10 @@ const checkGenderRatio = async (mainUser, friend, eventId, age_group, session) =
   const maleRatio = (maleParticipantsCount / totalParticipants) * 100
   const femaleRatio = (femaleParticipantsCount / totalParticipants) * 100
 
-  if(isRegisteringMale && maleRatio > 60 ) {
+  if (isRegisteringMale && maleRatio > 60) {
     return false
   }
-  else if(!isRegisteringMale && femaleRatio > 60) {
+  else if (!isRegisteringMale && femaleRatio > 60) {
     return false
   }
   return true
@@ -183,7 +183,7 @@ const addToWaitlist = async (mainParticipant, friendParticipant, eventId, age_gr
     age_group: age_group
   })
 
-  if(existingWaitlist) {
+  if (existingWaitlist) {
     return
   }
   await Waitlist.create([{
@@ -191,35 +191,49 @@ const addToWaitlist = async (mainParticipant, friendParticipant, eventId, age_gr
     user_id: mainParticipant.user_id,
     participant_id: mainParticipant._id,
     age_group: age_group,
-    invited_user_id: friendParticipant ? friendParticipant.user_id: null,
+    invited_user_id: friendParticipant ? friendParticipant.user_id : null,
     sub_participant_id: friendParticipant ? friendParticipant._id : null
   }], {
     session: session ? session : null
   });
 }
 
-const sendEventAvailabilityMailToWaitlist = async (registration, res)=>{
+const sendEventAvailabilityMailToWaitlist = async (registration, res) => {
   try {
     const waitlistedParticipants = await Waitlist.find({
       event_id: registration.event_id,
       age_group: registration.age_group
     }).populate("user_id", "email first_name locale")
-  
+
     console.log(waitlistedParticipants, 'waitlistedParticipants');
-  
+
+    const Transaction = mongoose.model('Transaction');
     waitlistedParticipants.forEach(async (participant) => {
-      
-      const payment = await transaction.create({
+      let payment;
+      const existingPayment = await Transaction.findOne({
         user_id: participant.user_id._id,
-        participant_id: participant.participant_id,
-        ...participant.sub_participant_id && {sub_participant_id: [participant.sub_participant_id]},
-        ...participant.invited_user_id && {invited_user_id: registerFriend.invited_user_id},
         type: 'Register Event',
-        amount: participant.sub_participant_id ? 40 : 20,
+        status: 'unpaid',
         event_id: participant.event_id,
-        status: 'unpaid'
+        amount: participant.sub_participant_id ? 40 : 20,
+        ...participant.sub_participant_id && { sub_participant_id: [participant.sub_participant_id] },
+        ...participant.invited_user_id && { invited_user_id: participant.invited_user_id },
       })
-  
+      if (existingPayment) {
+        payment = existingPayment
+      }
+      else {
+        payment = await transaction.create({
+          user_id: participant.user_id._id,
+          participant_id: participant.participant_id,
+          ...participant.sub_participant_id && { sub_participant_id: [participant.sub_participant_id] },
+          ...participant.invited_user_id && { invited_user_id: registerFriend.invited_user_id },
+          type: 'Register Event',
+          amount: participant.sub_participant_id ? 40 : 20,
+          event_id: participant.event_id,
+          status: 'unpaid'
+        })
+      }
       await mail.send({
         to: participant.user_id.email,
         locale: participant.user_id.locale || 'en',
@@ -232,11 +246,11 @@ const sendEventAvailabilityMailToWaitlist = async (registration, res)=>{
             amount: payment.amount
           }),
           button_label: res.__({ phrase: 'waitlist.alert.button-label', locale: participant.user_id.locale || 'en' }),
-          button_url: `${process.env.CLIENT_URL}/event/${payment._id}`    
+          button_url: `${process.env.CLIENT_URL}/event/${payment._id}?source=mail`
         }
-        })
-        console.log('Mail for link', `${process.env.CLIENT_URL}/event/${payment._id}`, 'sent');
-      
+      })
+      console.log('Mail for link', `${process.env.CLIENT_URL}/event/${payment._id}`, 'sent');
+
     })
   } catch (error) {
     console.log('error', error);
@@ -251,14 +265,14 @@ exports.create = async function (req, res) {
   session.startTransaction();
   try {
     const idUser = req.user;
-    utility.assert(req.body, ['mainUser', 'friend', 'id'] , res.__('register_participant.invalid'));
+    utility.assert(req.body, ['mainUser', 'friend', 'id'], res.__('register_participant.invalid'));
     const { mainUser, friend, id, age_group } = req.body
 
     await checkEventFull(id);
     const ageGroupCheck = verifyAgeGroup(mainUser, friend, age_group);
-    if(!ageGroupCheck) {
+    if (!ageGroupCheck) {
       throw ({ message: res.__('register_participant.age_group.invalid') })
-    } 
+    }
     const userData = await user.get({ id: idUser });
     const existingRegistration = await RegisteredParticipant.findOne({
       user_id: userData._id,
@@ -274,13 +288,13 @@ exports.create = async function (req, res) {
     let friendAdded;
 
     const genderRatioCheck = await checkGenderRatio(mainUser, friend, id, age_group, session);
-    if(friend?.email){
+    if (friend?.email) {
       if (mainUser.email === friend.email)
         throw ({ message: res.__('user.create.duplicate') })
-      
-      const friendData = await user.get({ email: friend.email});
-      
-      if(!friendData){
+
+      const friendData = await user.get({ email: friend.email });
+
+      if (!friendData) {
         friend.verified = true
         friend.default_account = null
         friend.is_invited = true
@@ -288,12 +302,12 @@ exports.create = async function (req, res) {
         friend.children = friend.children === 'Yes' ? true : false;
         friendAdded = await user.create({ user: friend })
         console.log(friendAdded, 'friendAdded');
-        
+
         console.log('====get id users', idUser);
       } else {
         friendAdded = friendData;
       }
-     
+
       registerFriend = await registeredParticipant.create({
         user_id: friendAdded._id,
         event_id: id,
@@ -315,29 +329,29 @@ exports.create = async function (req, res) {
         status: genderRatioCheck ? 'process' : 'waitlist'
       }, session)
       console.log(registerFriend, 'registerFriend');
-      
+
     }
     const registerMainUser = await registeredParticipant.create({
-        user_id: userData._id,
-        event_id: id,
-        first_name: mainUser.first_name,
-        last_name: mainUser.last_name,
-        gender: mainUser.gender || null,
-        date_of_birth: mainUser.date_of_birth,
-        age_group: age_group,
-        children: mainUser.children === 'Yes' ? true : false,
-        email: mainUser.email,
-        is_main_user: true,
-        relationship_goal: mainUser.relationship_goal,
-        kind_of_person: mainUser.kind_of_person,
-        feel_around_new_people: mainUser.feel_around_new_people,
-        prefer_spending_time: mainUser.prefer_spending_time,
-        describe_you_better: mainUser.describe_you_better,
-        describe_role_in_relationship: mainUser.describe_role_in_relationship,
-        looking_for: mainUser.looking_for,
-        status: genderRatioCheck ? 'process' : 'waitlist'
+      user_id: userData._id,
+      event_id: id,
+      first_name: mainUser.first_name,
+      last_name: mainUser.last_name,
+      gender: mainUser.gender || null,
+      date_of_birth: mainUser.date_of_birth,
+      age_group: age_group,
+      children: mainUser.children === 'Yes' ? true : false,
+      email: mainUser.email,
+      is_main_user: true,
+      relationship_goal: mainUser.relationship_goal,
+      kind_of_person: mainUser.kind_of_person,
+      feel_around_new_people: mainUser.feel_around_new_people,
+      prefer_spending_time: mainUser.prefer_spending_time,
+      describe_you_better: mainUser.describe_you_better,
+      describe_role_in_relationship: mainUser.describe_role_in_relationship,
+      looking_for: mainUser.looking_for,
+      status: genderRatioCheck ? 'process' : 'waitlist'
     }, session)
-    await user.update({ 
+    await user.update({
       _id: new mongoose.Types.ObjectId(userData._id),
       data: {
         kind_of_person: mainUser.kind_of_person,
@@ -348,20 +362,22 @@ exports.create = async function (req, res) {
       }
     })
     console.log(registerMainUser, 'registerMainUser');
-      if(!genderRatioCheck) {
-        await addToWaitlist(registerMainUser,registerFriend, id, age_group, session)
-        await session.commitTransaction();
-        await session.endSession();
-        return res.status(200).send({data: { 
-          status: 'waitlist', 
-          message: res.__('register_participant.waitlist') 
-        }})
-      }
+    if (!genderRatioCheck) {
+      await addToWaitlist(registerMainUser, registerFriend, id, age_group, session)
+      await session.commitTransaction();
+      await session.endSession();
+      return res.status(200).send({
+        data: {
+          status: 'waitlist',
+          message: res.__('register_participant.waitlist')
+        }
+      })
+    }
     const payment = await transaction.create({
       user_id: userData._id,
       participant_id: registerMainUser._id,
-      ...registerFriend && {sub_participant_id: [registerFriend._id]},
-      ...registerFriend && {invited_user_id: registerFriend.user_id},
+      ...registerFriend && { sub_participant_id: [registerFriend._id] },
+      ...registerFriend && { invited_user_id: registerFriend.user_id },
       type: 'Register Event',
       amount: registerFriend ? 40 : 20,
       event_id: id,
@@ -370,10 +386,12 @@ exports.create = async function (req, res) {
     await session.commitTransaction();
     await session.endSession();
     // const register = await registeredParticipant.create();
-    return res.status(200).send({ data: {
-      status: 'payment',
-      id: payment._id
-    } });
+    return res.status(200).send({
+      data: {
+        status: 'payment',
+        id: payment._id
+      }
+    });
   } catch (err) {
     console.log(err, 'err');
     await session.abortTransaction();
@@ -391,64 +409,288 @@ exports.pay = async function (req, res) {
   const id = req.params.id;
   utility.assert(id, res.__('account.card.missing'));
 
-    const data = utility.validate(joi.object({
-      token: joi.object(),
-      stripe: joi.object(),
-      account_holder_name: joi.string(),
-      sepaForm: joi.boolean(),
-      credit_card_name: joi.string(),
-      account: joi.boolean(),
-  
-    }), req, res); 
-  
-    const stripeData = {};
-  
-    const accountData = await account.get({ id: req.account });
-    utility.assert(accountData, res.__('account.invalid'));
+  const data = utility.validate(joi.object({
+    token: joi.object(),
+    stripe: joi.object(),
+    account_holder_name: joi.string(),
+    sepaForm: joi.boolean(),
+    credit_card_name: joi.string(),
+    account: joi.boolean(),
 
-    const transactionUser = await transaction.getById({id: new mongoose.Types.ObjectId(id)})
-    utility.assert(transactionUser, res.__('event.already_paid'));
+  }), req, res);
 
-    if(transactionUser && !data.account){
-      const eventData = await event.getById({id: new mongoose.Types.ObjectId(transactionUser.event_id)})
-      await checkCapacityWithWarning(transactionUser.event_id);
+  const stripeData = {};
 
-      // Get today's date at 00:00
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-  
-      // Get event date and normalize to 00:00
-      const eventDate = new Date(eventData.date);
-      eventDate.setHours(0, 0, 0, 0);
-  
-      // If event date is before today, it's in the past
-      if (eventDate < today) {
-        utility.assert(eventData, res.__('event.already_held'));
+  const accountData = await account.get({ id: req.account });
+  utility.assert(accountData, res.__('account.invalid'));
+
+  const transactionUser = await transaction.getById({ id: new mongoose.Types.ObjectId(id) })
+  utility.assert(transactionUser, res.__('event.already_paid'));
+
+  if (transactionUser && !data.account) {
+    const eventData = await event.getById({ id: new mongoose.Types.ObjectId(transactionUser.event_id) })
+    await checkCapacityWithWarning(transactionUser.event_id);
+
+    // Get today's date at 00:00
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get event date and normalize to 00:00
+    const eventDate = new Date(eventData.date);
+    eventDate.setHours(0, 0, 0, 0);
+
+    // If event date is before today, it's in the past
+    if (eventDate < today) {
+      utility.assert(eventData, res.__('event.already_held'));
+    }
+  }
+
+  // const User = mongoose.model('User');
+  // const mainUser = await User.findById(transactionUser.user_id)
+  // console.log(mainUser, 'mainUser');
+  // const mainParticipant = await RegisteredParticipant.findById(transactionUser.participant_id)
+  // if (!mainUser) {
+  //   utility.assert(mainUser, res.__('user.invalid'));
+  // }
+  // let friend = null
+  // if (transactionUser.invited_user_id) {
+  //   friend = await User.findById(transactionUser.invited_user_id)
+  // }
+
+  // const genderRatioCheck = await checkGenderRatio(mainUser, friend, transactionUser.event_id, mainParticipant.age_group);
+
+  // if (!genderRatioCheck) {
+  //   let friendParticipant = null
+  //   if (transactionUser.invited_user_id) {
+  //     friendParticipant = await RegisteredParticipant.findOne({
+  //       id: new mongoose.Types.ObjectId(transactionUser.sub_participant_id[0])
+  //     })
+  //   }
+  //   if (mainParticipant.status != 'waitlist') {
+  //     await addToWaitlist(mainParticipant, friendParticipant, transactionUser.event_id, mainParticipant.age_group);
+  //     await registeredParticipant.findOneAndUpdate({
+  //       id: new mongoose.Types.ObjectId(mainParticipant._id),
+  //     }, {
+  //       status: 'waitlist'
+  //     })
+  //     friendParticipant && await registeredParticipant.findOneAndUpdate({
+  //       id: new mongoose.Types.ObjectId(friendParticipant._id),
+  //     }, {
+  //       status: 'waitlist'
+  //     })
+  //   }
+  //   return res.status(200).send({
+  //     data: {
+  //       status: 'waitlist',
+  //       message: res.__('register_participant.waitlist')
+  //     }
+  //   })
+  // }
+
+  if (data.stripe === undefined) {
+
+    utility.assert(data.token?.id, res.__('account.card.missing'));
+
+    // create a stripe customer
+    stripeData.customer = accountData.stripe_customer_id || await stripe.customer.create({ email: accountData.owner_email, name: data.sepaForm ? data.account_holder_name : data.credit_card_name, ...!data.sepaForm && { token: data.token.id } });
+    let paymentIntent, paymentSepa;
+    // Compute final amount using Stripe promotion code if provided
+    let originalAmountCents = transactionUser ? Math.round(transactionUser.amount * 100) : 0;
+    let finalAmountCents = originalAmountCents;
+    let discountCents = 0;
+    let couponMeta = null;
+    if (req.body.coupon) {
+      try {
+        const promo = await stripe.promotionCode.findByCode({ code: req.body.coupon });
+        if (promo && promo.active && promo.coupon?.valid !== false) {
+          if (promo.coupon.amount_off) {
+            discountCents = Math.min(promo.coupon.amount_off, originalAmountCents);
+          } else if (promo.coupon.percent_off) {
+            discountCents = Math.floor((promo.coupon.percent_off / 100) * originalAmountCents);
+          }
+          finalAmountCents = Math.max(originalAmountCents - discountCents, 0);
+          couponMeta = { id: promo.id, code: promo.code };
+        }
+      } catch (e) { /* ignore invalid code */ }
+    }
+    // If coupon exists, block if metadata indicates it was already manually redeemed by the same user
+    if (couponMeta?.id) {
+      try {
+        const promoCode = await stripe.promotionCode.retrieve({ id: couponMeta.id });
+        // Block coupon if it has already been manually redeemed by any user
+        if (promoCode?.metadata?.manually_redeemed === 'true') {
+          return res.status(400).send({ error: 'Invalid coupon' });
+        }
+      } catch (e) { }
+    }
+    // If final amount is below Stripe minimum (EUR ~ 50 cents), treat as free
+    const MIN_EUR_CENTS = 50;
+    if (finalAmountCents < MIN_EUR_CENTS) {
+      // If a coupon was used, manually mark redemption on Stripe
+      if (couponMeta?.id) {
+        try {
+          const promoCode = await stripe.promotionCode.retrieve({ id: couponMeta.id });
+          await stripe.promotionCode.update({
+            id: couponMeta.id, data: {
+              metadata: {
+                ...(promoCode?.metadata || {}),
+                manually_redeemed: 'true',
+                redeemed_by_user_id: String(req.user.id),
+                redeemed_at: new Date().toISOString()
+              }
+            }
+          });
+          if (promoCode?.max_redemptions === 1) {
+            await stripe.promotionCode.update({ id: couponMeta.id, data: { active: false } });
+          }
+        } catch (e) {
+          console.error('Manual promo redemption failed', e);
+        }
       }
+      try {
+        // Mark transaction paid
+        await transaction.findOneAndUpdate({ id: new mongoose.Types.ObjectId(id) }, { status: 'paid' });
+
+        // Fetch event and update participant(s)
+        const eventUser = await event.getById({ id: new mongoose.Types.ObjectId(transactionUser.event_id) });
+        if (eventUser) {
+          await registeredParticipant.findOneAndUpdate(
+            { id: new mongoose.Types.ObjectId(transactionUser.participant_id) },
+            { status: 'registered' }
+          );
+
+          // email main user
+          const mainUser = await registeredParticipant.findOneAndUpdate(
+            { id: new mongoose.Types.ObjectId(transactionUser.participant_id) },
+            { status: 'registered' }
+          );
+
+          // Remove from waiting list if present
+          await Waitlist.findOneAndDelete({
+            event_id: new mongoose.Types.ObjectId(transactionUser.event_id),
+            participant_id: new mongoose.Types.ObjectId(transactionUser.participant_id),
+          })
+          await mail.send({
+            to: mainUser.email,
+            locale: req.locale,
+            custom: true,
+            template: 'event_registered',
+            subject: `${eventUser.city.name} - ${res.__('payment.registered_event.subject')}`,
+            content: {
+              name: `${mainUser.first_name} ${mainUser.last_name}`,
+              body: res.__('payment.registered_event.body', {
+                name: eventUser.city.name,
+                event: eventUser.city.name,
+                date: utility.formatDateString(eventUser.date || new Date()),
+              }),
+              button_url: process.env.CLIENT_URL,
+              button_label: res.__('payment.registered_event.button'),
+            },
+          });
+
+          if (Array.isArray(transactionUser?.sub_participant_id)) {
+            for (const idSub of transactionUser.sub_participant_id) {
+              const subUser = await registeredParticipant.findOneAndUpdate(
+                { id: new mongoose.Types.ObjectId(idSub) },
+                { status: 'registered' }
+              );
+              await mail.send({
+                to: subUser.email,
+                locale: req.locale,
+                custom: true,
+                template: 'event_registered',
+                subject: `${eventUser.city.name} - ${res.__('payment.registered_event.subject')}`,
+                content: {
+                  name: `${subUser.first_name} ${subUser.last_name}`,
+                  body: res.__('payment.registered_event.body', {
+                    name: eventUser.city.name,
+                    event: eventUser.city.name,
+                    date: utility.formatDateString(eventUser.date || new Date()),
+                  }),
+                  button_url: process.env.CLIENT_URL,
+                  button_label: res.__('payment.registered_event.button'),
+                },
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Free checkout finalize failed', e);
+      }
+
+      return res.status(200).send({
+        requires_payment_action: false,
+        transaction: id,
+        amount: 0,
+        price: { original: (originalAmountCents / 100), discount: (originalAmountCents / 100), final: 0 },
+        ...couponMeta && { coupon: couponMeta }
+      });
     }
 
+    if (data.sepaForm) {
+      paymentSepa = await stripe.customer.setappIntents(accountData.stripe_customer_id, ['sepa_debit']);
+
+    } else {
+      if (transactionUser) {
+        paymentIntent = await stripe.paymentIntent({
+          amount: finalAmountCents,
+          id: accountData.stripe_customer_id || stripeData.customer.id,
+          userId: req.user.id,
+          payment_method_types: ['card'],
+          // payment_method: req.body.paymentId,
+        })
+      }
+    }
+    await account.update({
+      id: req.account,
+      data: { stripe_customer_id: accountData.stripe_customer_id || stripeData.customer.id }
+    })
+
+    return res.status(200).send({
+      requires_payment_action: true,
+      customer: { id: accountData.stripe_customer_id || stripeData.customer.id },
+      client_secret: (data.sepaForm ? paymentSepa : paymentIntent)?.client_secret,
+      method: data.sepaForm ? 'directdebit' : 'card',
+      account_holder_name: data.account_holder_name,
+      email: accountData.owner_email,
+      type: data.sepaForm ? 'setup' : null,
+      transaction: id,
+      amount: (finalAmountCents / 100),
+      price: { original: (originalAmountCents / 100), discount: (discountCents / 100), final: (finalAmountCents / 100) },
+      ...couponMeta && { coupon: couponMeta }
+    });
+  }
+
+  console.log(res.__('account.log.event'));
+  log.create({ message: res.__('account.log.event'), body: {}, req: req });
+  res.status(200).send({ event: data, onboarded: false });
+};
+
+exports.checkForSlotAvailability = async function (req, res) {
+  try {
+    const id = req.params.id;
+    const transactionUser = await transaction.getById({ id: new mongoose.Types.ObjectId(id) });
     const User = mongoose.model('User');
     const mainUser = await User.findById(transactionUser.user_id)
     console.log(mainUser, 'mainUser');
     const mainParticipant = await RegisteredParticipant.findById(transactionUser.participant_id)
-    if(!mainUser){
+    if (!mainUser) {
       utility.assert(mainUser, res.__('user.invalid'));
     }
     let friend = null
-    if(transactionUser.invited_user_id){
+    if (transactionUser.invited_user_id) {
       friend = await User.findById(transactionUser.invited_user_id)
     }
-
     const genderRatioCheck = await checkGenderRatio(mainUser, friend, transactionUser.event_id, mainParticipant.age_group);
-
-    if(!genderRatioCheck) {
+  
+    if (!genderRatioCheck) {
       let friendParticipant = null
-      if(transactionUser.invited_user_id){
+      if (transactionUser.invited_user_id) {
         friendParticipant = await RegisteredParticipant.findOne({
           id: new mongoose.Types.ObjectId(transactionUser.sub_participant_id[0])
         })
       }
-      if(mainParticipant.status != 'waitlist'){
+      if (mainParticipant.status != 'waitlist') {
         await addToWaitlist(mainParticipant, friendParticipant, transactionUser.event_id, mainParticipant.age_group);
         await registeredParticipant.findOneAndUpdate({
           id: new mongoose.Types.ObjectId(mainParticipant._id),
@@ -461,200 +703,40 @@ exports.pay = async function (req, res) {
           status: 'waitlist'
         })
       }
-      return res.status(200).send({data: { 
-        status: 'waitlist', 
-        message: res.__('register_participant.waitlist') 
-      }})
-    }
-
-    if (data.stripe === undefined){
-
-      utility.assert(data.token?.id, res.__('account.card.missing'));
-
-      // create a stripe customer
-      stripeData.customer = accountData.stripe_customer_id || await stripe.customer.create({ email: accountData.owner_email, name: data.sepaForm ? data.account_holder_name : data.credit_card_name, ...!data.sepaForm && { token: data.token.id } });
-      let paymentIntent, paymentSepa;
-      // Compute final amount using Stripe promotion code if provided
-      let originalAmountCents = transactionUser ? Math.round(transactionUser.amount * 100) : 0;
-      let finalAmountCents = originalAmountCents;
-      let discountCents = 0;
-      let couponMeta = null;
-      if (req.body.coupon) {
-        try {
-          const promo = await stripe.promotionCode.findByCode({ code: req.body.coupon });
-          if (promo && promo.active && promo.coupon?.valid !== false) {
-            if (promo.coupon.amount_off) {
-              discountCents = Math.min(promo.coupon.amount_off, originalAmountCents);
-            } else if (promo.coupon.percent_off) {
-              discountCents = Math.floor((promo.coupon.percent_off / 100) * originalAmountCents);
-            }
-            finalAmountCents = Math.max(originalAmountCents - discountCents, 0);
-            couponMeta = { id: promo.id, code: promo.code };
-          }
-        } catch (e) { /* ignore invalid code */ }
-      }
-      // If coupon exists, block if metadata indicates it was already manually redeemed by the same user
-      if (couponMeta?.id) {
-        try {
-          const promoCode = await stripe.promotionCode.retrieve({ id: couponMeta.id });
-          // Block coupon if it has already been manually redeemed by any user
-          if (promoCode?.metadata?.manually_redeemed === 'true') {
-            return res.status(400).send({ error: 'Invalid coupon' });
-          }
-        } catch (e) {}
-      }
-      // If final amount is below Stripe minimum (EUR ~ 50 cents), treat as free
-      const MIN_EUR_CENTS = 50;
-      if (finalAmountCents < MIN_EUR_CENTS) {
-        // If a coupon was used, manually mark redemption on Stripe
-        if (couponMeta?.id) {
-          try {
-            const promoCode = await stripe.promotionCode.retrieve({ id: couponMeta.id });
-            await stripe.promotionCode.update({ id: couponMeta.id, data: { metadata: {
-              ...(promoCode?.metadata || {}),
-              manually_redeemed: 'true',
-              redeemed_by_user_id: String(req.user.id),
-              redeemed_at: new Date().toISOString()
-            } }});
-            if (promoCode?.max_redemptions === 1) {
-              await stripe.promotionCode.update({ id: couponMeta.id, data: { active: false } });
-            }
-          } catch (e) {
-            console.error('Manual promo redemption failed', e);
-          }
-        }
-        try {
-          // Mark transaction paid
-          await transaction.findOneAndUpdate({ id: new mongoose.Types.ObjectId(id) }, { status: 'paid' });
-
-          // Fetch event and update participant(s)
-          const eventUser = await event.getById({ id: new mongoose.Types.ObjectId(transactionUser.event_id) });
-          if (eventUser) {
-            await registeredParticipant.findOneAndUpdate(
-              { id: new mongoose.Types.ObjectId(transactionUser.participant_id) },
-              { status: 'registered' }
-            );
-
-            // email main user
-            const mainUser = await registeredParticipant.findOneAndUpdate(
-              { id: new mongoose.Types.ObjectId(transactionUser.participant_id) },
-              { status: 'registered' }
-            );
-
-            // Remove from waiting list if present
-            await Waitlist.findOneAndDelete({
-              event_id: new mongoose.Types.ObjectId(transactionUser.event_id),
-              participant_id: new mongoose.Types.ObjectId(transactionUser.participant_id),
-            })
-            await mail.send({
-              to: mainUser.email,
-              locale: req.locale,
-              custom: true,
-              template: 'event_registered',
-              subject: `${eventUser.city.name} - ${res.__('payment.registered_event.subject')}`,
-              content: {
-                name: `${mainUser.first_name} ${mainUser.last_name}`,
-                body: res.__('payment.registered_event.body', {
-                  name: eventUser.city.name,
-                  event: eventUser.city.name,
-                  date: utility.formatDateString(eventUser.date || new Date()),
-                }),
-                button_url: process.env.CLIENT_URL,
-                button_label: res.__('payment.registered_event.button'),
-              },
-            });
-
-            if (Array.isArray(transactionUser?.sub_participant_id)) {
-              for (const idSub of transactionUser.sub_participant_id) {
-                const subUser = await registeredParticipant.findOneAndUpdate(
-                  { id: new mongoose.Types.ObjectId(idSub) },
-                  { status: 'registered' }
-                );
-                await mail.send({
-                  to: subUser.email,
-                  locale: req.locale,
-                  custom: true,
-                  template: 'event_registered',
-                  subject: `${eventUser.city.name} - ${res.__('payment.registered_event.subject')}`,
-                  content: {
-                    name: `${subUser.first_name} ${subUser.last_name}`,
-                    body: res.__('payment.registered_event.body', {
-                      name: eventUser.city.name,
-                      event: eventUser.city.name,
-                      date: utility.formatDateString(eventUser.date || new Date()),
-                    }),
-                    button_url: process.env.CLIENT_URL,
-                    button_label: res.__('payment.registered_event.button'),
-                  },
-                });
-              }
-            }
-          }
-        } catch (e) {
-          console.error('Free checkout finalize failed', e);
-        }
-
-        return res.status(200).send({
-          requires_payment_action: false,
-          transaction: id,
-          amount: 0,
-          price: { original: (originalAmountCents/100), discount: (originalAmountCents/100), final: 0 },
-          ...couponMeta && { coupon: couponMeta }
-        });
-      }
-
-      if(data.sepaForm){
-        paymentSepa = await stripe.customer.setappIntents(accountData.stripe_customer_id, ['sepa_debit']);
-
-      } else {
-        if(transactionUser){
-          paymentIntent = await stripe.paymentIntent({
-            amount: finalAmountCents,
-            id: accountData.stripe_customer_id || stripeData.customer.id,
-            userId: req.user.id,
-            payment_method_types: ['card'],
-            // payment_method: req.body.paymentId,
-          })
-        }
-      }
-      await account.update({
-        id: req.account,
-        data: { stripe_customer_id: accountData.stripe_customer_id || stripeData.customer.id }
-      })
-      
       return res.status(200).send({
-        requires_payment_action: true,
-        customer: { id: accountData.stripe_customer_id || stripeData.customer.id },
-        client_secret: (data.sepaForm ? paymentSepa : paymentIntent)?.client_secret,
-        method: data.sepaForm ? 'directdebit' : 'card',
-        account_holder_name: data.account_holder_name,
-        email: accountData.owner_email,
-        type: data.sepaForm ? 'setup' : null,
-        transaction: id,
-        amount: (finalAmountCents/100),
-        price: { original: (originalAmountCents/100), discount: (discountCents/100), final: (finalAmountCents/100) },
-        ...couponMeta && { coupon: couponMeta }
-      });
+        data: {
+          status: 'waitlist',
+          message: res.__('register_participant.waitlist')
+        }
+      })
     }
-
-    console.log(res.__('account.log.event'));
-    log.create({ message: res.__('account.log.event'), body: {  }, req: req });
-    res.status(200).send({ event: data, onboarded: false });
-};
-
+    return res.status(200).send({
+      data: {
+        status: 'available',
+        message: res.__('register_participant.available')
+      }
+    })
+  } catch (error) {
+    console.log(error);
+    return res.status(500).send({
+      error: error.message
+    })
+    
+  }
+}
 /*
 * account.sepa()
 * update sepa details
 */
 
-exports.sepa = async function(req, res){
+exports.sepa = async function (req, res) {
 
   utility.validate(req.body);
-  
+
   const accountData = await account.get({ id: req.account });
   utility.assert(accountData, res.__('account.invalid'));
-  
-  if(!accountData.stripe_customer_id){
+
+  if (!accountData.stripe_customer_id) {
     utility.assert(req.body.token, res.__('account.sepa.missing'), 'token');
   }
 
@@ -666,7 +748,7 @@ exports.sepa = async function(req, res){
   return res.status(200).send(useExisting ? {
     message: res.__('account.sepa.updated'),
     data: true
-  } : { 
+  } : {
     requires_payment_action: true,
     method: 'directdebit',
     type: 'setup',
@@ -685,25 +767,25 @@ exports.sepa = async function(req, res){
 * attach sepa payment to customer
 */
 
-exports.sepa.attach = async function(req, res){
+exports.sepa.attach = async function (req, res) {
 
   // utility.validate(req.body);
   utility.assert(req.body.transaction, res.__('account.invalid'));
   const accountData = await account.get({ id: req.account });
   utility.assert(accountData, res.__('account.invalid'));
-  
-  if(!accountData.stripe_customer_id){
+
+  if (!accountData.stripe_customer_id) {
     utility.assert(req.body.token, res.__('account.sepa.missing'), 'token');
   }
   console.log(accountData);
-  
+
   const sepaPayment = await stripe.customer.sepaSettings(req.body.paymentId, accountData.stripe_customer_id, req.body.prefer_payment_method);
 
   let paymentIntent;
-  const transactionUser = await transaction.getById({id: new mongoose.Types.ObjectId(req.body.transaction)})
+  const transactionUser = await transaction.getById({ id: new mongoose.Types.ObjectId(req.body.transaction) })
   console.log(transactionUser);
 
-  if(transactionUser){
+  if (transactionUser) {
     paymentIntent = await stripe.paymentIntent({
       amount: transactionUser.amount * 100,
       id: accountData.stripe_customer_id,
@@ -712,8 +794,8 @@ exports.sepa.attach = async function(req, res){
     })
   }
 
-  return res.status(200).send({ 
-    
+  return res.status(200).send({
+
     requires_payment_action: true,
     method: 'directdebit',
     client_secret: paymentIntent.client_secret,
@@ -731,28 +813,28 @@ exports.sepa.attach = async function(req, res){
 * get the card details for this account
 */
 
-exports.card = async function(req, res){
+exports.card = async function (req, res) {
 
   const accountData = await account.get({ id: req.account });
   utility.assert(accountData, res.__('account.invalid'));
 
-  if (accountData.stripe_customer_id){
-    
+  if (accountData.stripe_customer_id) {
+
     const customer = await stripe.customer(accountData.stripe_customer_id);
     card = customer.sources?.data?.[0];
-    
+
     const sepa = await stripe.customer.paymentMethod(accountData.stripe_customer_id, 'sepa_debit');
-    
-    if (card || sepa){
+
+    if (card || sepa) {
       let data = {};
-      if(sepa.data?.[0]){
+      if (sepa.data?.[0]) {
         data.sepa_debit = {
           brand: 'sepa_debit',
           last4: sepa.data[0].sepa_debit.last4,
           name: sepa.data[0].billing_details?.name,
           prefer_payment_method: customer.invoice_settings.default_payment_method === sepa.data[0].id
         }
-      } 
+      }
       if (card) {
         data.card = {
           brand: card.brand,
@@ -765,14 +847,14 @@ exports.card = async function(req, res){
       }
       data.address = {
         city: customer.address?.city || '',
-        country: customer.address?.country  || '',
-        street: customer.address?.line1  || '',
-        state: customer.address?.state  || '',
-        state_2: customer.address?.postal_code  || '',
+        country: customer.address?.country || '',
+        street: customer.address?.line1 || '',
+        state: customer.address?.state || '',
+        state_2: customer.address?.postal_code || '',
       }
-      data.invoice_recipient =  customer.name
+      data.invoice_recipient = customer.name
       data.email = customer.email
-      
+
       return res.status(200).send({ data });
     }
     else {
@@ -791,14 +873,14 @@ exports.card = async function(req, res){
 * update credit card details
 */
 
-exports.card.update = async function(req, res){
+exports.card.update = async function (req, res) {
 
   utility.validate(req.body);
-  
+
   const accountData = await account.get({ id: req.account });
   utility.assert(accountData, res.__('account.invalid'));
-  
-  if(!accountData.stripe_customer_id){
+
+  if (!accountData.stripe_customer_id) {
     utility.assert(req.body.token, res.__('account.card.missing'), 'token');
   }
 
@@ -807,7 +889,7 @@ exports.card.update = async function(req, res){
   const getCustomer = await stripe.customer(accountData.stripe_customer_id);
   card = getCustomer.sources?.data?.[0];
 
-  if(req.body.section === 'payment_method'){
+  if (req.body.section === 'payment_method') {
     const customerSource = await stripe.updateSource(
       accountData.stripe_customer_id,
       card.id,
@@ -819,7 +901,7 @@ exports.card.update = async function(req, res){
     // notify the user
     const send = await notification.get({ account: accountData.id, name: 'card_updated' });
 
-    if (send){
+    if (send) {
       await mail.send({
 
         to: accountData.owner_email,
@@ -830,11 +912,11 @@ exports.card.update = async function(req, res){
 
       });
     }
-  } else if (req.body.section === 'email'){
-    const updateEmail = await stripe.customer.updateEmail({id: accountData.stripe_customer_id, email: req.body.email})
-  }  else if (req.body.section === 'invoice_recipient'){
-    const updateName = await stripe.customer.updateName({id: accountData.stripe_customer_id, name: req.body.invoice_recipient})
-  }  else if (req.body.section === 'address'){
+  } else if (req.body.section === 'email') {
+    const updateEmail = await stripe.customer.updateEmail({ id: accountData.stripe_customer_id, email: req.body.email })
+  } else if (req.body.section === 'invoice_recipient') {
+    const updateName = await stripe.customer.updateName({ id: accountData.stripe_customer_id, name: req.body.invoice_recipient })
+  } else if (req.body.section === 'address') {
     const customerAddress = await stripe.updateAddress(
       accountData.stripe_customer_id,
       {
@@ -847,11 +929,11 @@ exports.card.update = async function(req, res){
     )
   }
 
-  return res.status(200).send({ 
-    
+  return res.status(200).send({
+
     data: customer?.sources?.data?.[0],
     message: res.__('account.card.updated')
-  
+
   });
 };
 
@@ -893,7 +975,7 @@ exports.successPayment = async function (req, res) {
     );
 
     // Delete waiting list participant
-    
+
     await Waitlist.findOneAndDelete({
       participant_id: new mongoose.Types.ObjectId(transactionUser.participant_id),
       event_id: new mongoose.Types.ObjectId(transactionUser.event_id),
@@ -1021,7 +1103,7 @@ exports.successPayment = async function (req, res) {
       currentRegistrations >= totalCapacity * 0.9 &&
       !eventUser.capacity_warning_sent
     ) {
-   
+
       try {
         // Get all admin accounts (accounts with name "Master")
         const adminAccounts = await mongoose.model("Account").find({
@@ -1042,7 +1124,7 @@ exports.successPayment = async function (req, res) {
         // Send email to all admin users
         for (const adminUser of adminUsers) {
           console.log(`📤 Sending email to: ${adminUser.email} (${adminUser.name || 'Admin'})`);
-          
+
           const emailData = {
             to: adminUser.email,
             template: "event_registered",
@@ -1056,30 +1138,28 @@ exports.successPayment = async function (req, res) {
                 <ul style="margin-bottom: 20px; padding-left: 20px;">
                   <li><strong>Event:</strong> ${eventUser.tagline}</li>
                   <li><strong>Date:</strong> ${new Date(
-                    eventUser.date
-                  ).toLocaleDateString()}</li>
-                  <li><strong>Time:</strong> ${eventUser.start_time} - ${
-                eventUser.end_time
-              }</li>
+                eventUser.date
+              ).toLocaleDateString()}</li>
+                  <li><strong>Time:</strong> ${eventUser.start_time} - ${eventUser.end_time
+                }</li>
                   <li><strong>City:</strong> ${eventUser.city.name}</li>
                   <li><strong>Current Registrations:</strong> ${currentRegistrations}</li>
                   <li><strong>Total Capacity:</strong> ${totalCapacity}</li>
-                  <li><strong>Available Spots:</strong> ${
-                    totalCapacity - currentRegistrations
-                  }</li>
+                  <li><strong>Available Spots:</strong> ${totalCapacity - currentRegistrations
+                }</li>
                   <li><strong>Capacity Percentage:</strong> ${Math.round(
-                    (currentRegistrations / totalCapacity) * 100
-                  )}%</li>
+                  (currentRegistrations / totalCapacity) * 100
+                )}%</li>
                 </ul>
                 <p style="margin-bottom: 15px;"><strong>Bar Details:</strong></p>
                 <ul style="margin-bottom: 20px; padding-left: 20px;">
                   ${eventUser.bars
-                    .map(
-                      (bar) => `
+                  .map(
+                    (bar) => `
                     <li><strong>${bar._id.name}:</strong> ${bar.available_spots} spots available</li>
                   `
-                    )
-                    .join("")}
+                  )
+                  .join("")}
                 </ul>
                 <p style="color: #e74c3c; font-weight: bold; margin-bottom: 20px;">
                   ⚠️ This event has reached 90% capacity! Consider taking action to manage registrations.
