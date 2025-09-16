@@ -20,6 +20,8 @@ api.post('/api/events/register', auth.verify('owner'), use(registeredParticipant
 
 api.post('/api/event/payment/:id', auth.verify('user'), use(registeredParticipantController.pay));
 
+api.get('/api/event/payment/check-for-slot/:id', auth.verify('user'), use(registeredParticipantController.checkForSlotAvailability));
+
 // Validate promotion code and preview discount amount for event payment
 api.post('/api/event/:id/validate-coupon', auth.verify('user'), use(couponController.validateEventCoupon));
 

@@ -13,9 +13,10 @@ const RegisteredParticipantSchema = new Schema({
   gender: { type: String, enum: ['male', 'female', 'diverse'], default: null },
   date_of_birth: { type: Date },
   email: { type: String, required: true },
+  age_group: { type: String, enum: ['20–30', '31–40', '41–50', '50+'], required: true },
   status: {
     type: String,
-    enum: ['process', 'registered', 'canceled'],
+    enum: ['process','waitlist','registered', 'canceled'],
     default: 'registered'
   },
   is_main_user: { type: Boolean, default: null },
@@ -39,7 +40,7 @@ exports.schema = RegisteredParticipant;
 /*
  * registeredParticipant.create()
  */
-exports.create = async function (registration) {
+exports.create = async function (registration, session) {
   const data = new RegisteredParticipant({
     user_id: registration.user_id,
     event_id: registration.event_id,
@@ -47,6 +48,7 @@ exports.create = async function (registration) {
     last_name: registration.last_name,
     gender: registration.gender || null,
     date_of_birth: registration.date_of_birth,
+    age_group: registration.age_group,
     email: registration.email,
     status: registration.status || 'registered',
     is_main_user: registration.is_main_user,
@@ -61,7 +63,9 @@ exports.create = async function (registration) {
     is_test: registration.is_test
   });
 
-  await data.save();
+  await data.save({
+    session: session ? session : null
+  });
   return data;
 };
 

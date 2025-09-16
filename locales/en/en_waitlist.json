@@ -1,0 +1,8 @@
+{
+    "alert": {
+      "subject": "Complete Your Registration – Secure Your Spot!",
+      "body": "Hi {{name}},\n\nGood news! You now have the opportunity to move off the waitlist and confirm your place at the event. To secure your spot, please complete your registration by paying the fee of ${{amount}}.\n\nDon’t miss out—spaces are limited!",
+      "button-label": "Confirm & Pay"
+    }
+  }
+  

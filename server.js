@@ -16,7 +16,7 @@ const i18n = require('i18n');
 const http = require('http');
 const { Server } = require('socket.io');
 require('./helper/i18n').config(); // helper file
-
+require('./model/waitlist')
 const port = process.env.PORT || 8080;
 const app = express();
 

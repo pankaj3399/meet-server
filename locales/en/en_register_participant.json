@@ -1,3 +1,8 @@
 {
-    "invalid": "Please check your required inputs again"
+    "invalid": "Please check your required inputs again",
+    "age_group":{
+        "invalid": "Please select your age group correctly"
+    },
+    "waitlist": "You have been added to the waitlist",
+    "already_registered": "You have already registered for this event"
 }
