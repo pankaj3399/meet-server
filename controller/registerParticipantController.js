@@ -445,48 +445,6 @@ exports.pay = async function (req, res) {
     }
   }
 
-  // const User = mongoose.model('User');
-  // const mainUser = await User.findById(transactionUser.user_id)
-  // console.log(mainUser, 'mainUser');
-  // const mainParticipant = await RegisteredParticipant.findById(transactionUser.participant_id)
-  // if (!mainUser) {
-  //   utility.assert(mainUser, res.__('user.invalid'));
-  // }
-  // let friend = null
-  // if (transactionUser.invited_user_id) {
-  //   friend = await User.findById(transactionUser.invited_user_id)
-  // }
-
-  // const genderRatioCheck = await checkGenderRatio(mainUser, friend, transactionUser.event_id, mainParticipant.age_group);
-
-  // if (!genderRatioCheck) {
-  //   let friendParticipant = null
-  //   if (transactionUser.invited_user_id) {
-  //     friendParticipant = await RegisteredParticipant.findOne({
-  //       id: new mongoose.Types.ObjectId(transactionUser.sub_participant_id[0])
-  //     })
-  //   }
-  //   if (mainParticipant.status != 'waitlist') {
-  //     await addToWaitlist(mainParticipant, friendParticipant, transactionUser.event_id, mainParticipant.age_group);
-  //     await registeredParticipant.findOneAndUpdate({
-  //       id: new mongoose.Types.ObjectId(mainParticipant._id),
-  //     }, {
-  //       status: 'waitlist'
-  //     })
-  //     friendParticipant && await registeredParticipant.findOneAndUpdate({
-  //       id: new mongoose.Types.ObjectId(friendParticipant._id),
-  //     }, {
-  //       status: 'waitlist'
-  //     })
-  //   }
-  //   return res.status(200).send({
-  //     data: {
-  //       status: 'waitlist',
-  //       message: res.__('register_participant.waitlist')
-  //     }
-  //   })
-  // }
-
   if (data.stripe === undefined) {
 
     utility.assert(data.token?.id, res.__('account.card.missing'));
