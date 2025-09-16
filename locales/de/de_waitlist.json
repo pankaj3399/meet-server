@@ -1,8 +1,7 @@
 {
-    "alert": {
-      "subject": "Zahlen Sie Ihre Registrierungsgebühr",
-      "body": "Hallo {{name}},\n\nHier ist Ihre Chance, von der Warteliste zu kommen.\nBitte zahlen Sie Ihre Registrierungsgebühr von ${{amount}} für die Veranstaltung, indem Sie auf den untenstehenden Link klicken.\n\n",
-      "button-label": "Jetzt bezahlen"
-    }
+  "alert": {
+    "subject": "Registrierung abschließen – Platz sichern!",
+    "body": "Hallo {{name}},\n\nGute Nachrichten! Sie haben jetzt die Möglichkeit, von der Warteliste aufzurücken und sich Ihren Platz bei der Veranstaltung zu sichern. Bitte schließen Sie Ihre Registrierung ab, indem Sie die Gebühr von ${{amount}} bezahlen.\n\nWarten Sie nicht zu lange – die Plätze sind begrenzt!",
+    "button-label": "Jetzt bestätigen & bezahlen"
   }
-  
+}

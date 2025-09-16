@@ -1,7 +1,8 @@
 {
-    "alert":{
-        "subject":"Pay your registration fee",
-        "body":"Hello {{name}},\n\nHere's your chance to get out of the waitlist.\nPlease pay your registration fee of ${{amount}} for the event by clicking on the link below.\n\n",
-        "button-label":"Pay Now"
+    "alert": {
+      "subject": "Complete Your Registration – Secure Your Spot!",
+      "body": "Hi {{name}},\n\nGood news! You now have the opportunity to move off the waitlist and confirm your place at the event. To secure your spot, please complete your registration by paying the fee of ${{amount}}.\n\nDon’t miss out—spaces are limited!",
+      "button-label": "Confirm & Pay"
     }
-}
+  }
+  
