@@ -670,10 +670,21 @@ exports.checkForSlotAvailability = async function (req, res) {
   try {
     const id = req.params.id;
     const transactionUser = await transaction.getById({ id: new mongoose.Types.ObjectId(id) });
+
+    if(transactionUser.status == "paid"){
+      return res.status(200).send({
+        data: {
+          status: 'paid',
+          message: res.__('register_participant.already_registered')
+        }
+      })
+    }
     const User = mongoose.model('User');
+    console.log(transactionUser, 'transactionUser');
     const mainUser = await User.findById(transactionUser.user_id)
     console.log(mainUser, 'mainUser');
     const mainParticipant = await RegisteredParticipant.findById(transactionUser.participant_id)
+    console.log(mainParticipant, 'mainParticipant');
     if (!mainUser) {
       utility.assert(mainUser, res.__('user.invalid'));
     }
@@ -681,7 +692,8 @@ exports.checkForSlotAvailability = async function (req, res) {
     if (transactionUser.invited_user_id) {
       friend = await User.findById(transactionUser.invited_user_id)
     }
-    const genderRatioCheck = await checkGenderRatio(mainUser, friend, transactionUser.event_id, mainParticipant.age_group);
+
+    const genderRatioCheck = await checkGenderRatio(mainUser, friend, transactionUser.event_id._id, mainParticipant.age_group);
   
     if (!genderRatioCheck) {
       let friendParticipant = null
