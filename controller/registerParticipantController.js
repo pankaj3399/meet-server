@@ -305,7 +305,7 @@ const checkPriorityWindow = async (eventId, age_group, userEmail, gender, res) =
 
   if (isUserNotified) return true; // user is in waiting list.
   
-  throw { message: "Priority registration window active. Only waitlisted participants can register." };
+  throw { message:  res.__('waitlist.active_24hours_window')};
 }
 
 /*
