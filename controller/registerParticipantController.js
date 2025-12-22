@@ -19,6 +19,7 @@ require('dotenv').config()
 const RegisteredParticipant = mongoose.model("RegisteredParticipant");
 const Waitlist = mongoose.model("Waitlist");
 const CHECK_FOR_THRESHOLD_START = process.env.CHECK_FOR_THRESHOLD_START || 11;
+const MAXIMUM_ALLOWED_GENDER_RATIO = 60;
 const checkEventFull = async (eventId) => {
   const eventData = await event.getById({ id: eventId });
   const registeredCount = await RegisteredParticipant.countDocuments({
@@ -132,10 +133,10 @@ const checkGenderRatio = async (mainUser, friend, eventId, age_group, session) =
   const maleRatio = (maleParticipantsCount / totalParticipants) * 100
   const femaleRatio = (femaleParticipantsCount / totalParticipants) * 100
 
-  if (isRegisteringMale && maleRatio > 60) {
+  if (isRegisteringMale && maleRatio > MAXIMUM_ALLOWED_GENDER_RATIO) {
     return false
   }
-  else if (!isRegisteringMale && femaleRatio > 60) {
+  else if (!isRegisteringMale && femaleRatio > MAXIMUM_ALLOWED_GENDER_RATIO) {
     return false
   }
   return true
@@ -278,7 +279,6 @@ const sendEventAvailabilityMailToWaitlist = async (registration, res) => {
 }
 
 const checkPriorityWindow = async (eventId, age_group, userEmail, gender, res) => {
-  console.log("check priority window called.")
   const activeWaitlistEntries = await Waitlist.find({
     event_id: eventId,
     age_group: age_group,
